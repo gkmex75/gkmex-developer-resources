@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: Gkmex Crane Inventory API
+  version: 1.0.0
+  description: Public read-only inventory of used mobile and crawler cranes offered by Gkmex Cranes.
+  contact:
+    name: Gkmex Cranes
+    url: https://gkmex.com/contact
+    email: info@gkmex.com
+  x-deprecation-policy: https://gkmex.com/developers/deprecation-policy
+servers:
+  - url: https://gkmex.com
+security: []
+paths:
+  /api/health:
+    get:
+      operationId: getApiHealth
+      summary: Check API availability
+      responses:
+        '200':
+          description: API is available
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/cranes:
+    get:
+      operationId: listCranes
+      summary: List published cranes
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {name: cursor, in: query, schema: {type: string}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0}}
+        - {name: brand, in: query, schema: {type: string}}
+        - {name: type, in: query, schema: {type: string, enum: [mobile, crawler]}}
+      responses:
+        '200':
+          description: Published crane inventory
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/cranes/{id}:
+    get:
+      operationId: getCrane
+      summary: Get one published crane
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Public crane record
+          content:
+            application/json:
+              schema: {type: object}
+        '404':
+          description: Crane not found
+          content:
+            application/json:
+              schema: {type: object}

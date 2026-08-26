@@ -1,0 +1,20 @@
+{
+  "name": "gkmex-developer-resources",
+  "version": "0.1.0",
+  "description": "Public Gkmex crane inventory API, MCP, NLWeb, OpenAPI, and agent integration resources",
+  "author": {
+    "name": "Gkmex Cranes",
+    "url": "https://gkmex.com"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Gkmex Developer Resources",
+    "shortDescription": "Search the public Gkmex used-crane inventory.",
+    "longDescription": "Connect Codex to the public, read-only Gkmex crane inventory through a documented MCP server and agent skill.",
+    "developerName": "Gkmex Cranes",
+    "category": "Productivity",
+    "capabilities": ["MCP", "Agent Skill", "Crane inventory search"],
+    "defaultPrompt": "Search the current Gkmex used-crane inventory and cite public listing URLs."
+  }
+}

@@ -1,0 +1,8 @@
+---
+description: Use the official public Gkmex used-crane inventory interfaces
+alwaysApply: false
+---
+
+# Gkmex inventory
+
+Use `https://gkmex.com/openapi.json` for the REST contract or `https://gkmex.com/mcp` for MCP. The integration is public, zero-auth and read-only. Cite listing URLs, interpret null prices as POA and require final confirmation from Gkmex.
