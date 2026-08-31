@@ -14,16 +14,38 @@ export async function readJson(request) {
 }
 
 export async function withServer(handler, run) {
-  const server = createServer(handler);
+  let handlerError;
+  const pendingHandlers = new Set();
+  const server = createServer((request, response) => {
+    const pending = Promise.resolve()
+      .then(() => handler(request, response))
+      .catch((error) => {
+        handlerError ??= error;
+        response.destroy();
+      })
+      .finally(() => pendingHandlers.delete(pending));
+    pendingHandlers.add(pending);
+  });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   const baseUrl = "http://127.0.0.1:" + address.port;
   try {
-    return await run(baseUrl);
+    let result;
+    let runError;
+    try {
+      result = await run(baseUrl);
+    } catch (error) {
+      runError = error;
+    }
+    await Promise.all(pendingHandlers);
+    if (handlerError) throw handlerError;
+    if (runError) throw runError;
+    return result;
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
+      server.closeAllConnections();
     });
   }
 }

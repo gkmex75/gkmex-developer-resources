@@ -4,6 +4,32 @@ import test from "node:test";
 import { GkmexClient } from "../src/index.js";
 import { sendJson, withServer } from "./helpers.js";
 
+test("withServer surfaces handler errors and closes connections", async (t) => {
+  const cases = [
+    ["synchronous", (error) => () => {
+      throw error;
+    }],
+    ["asynchronous", (error) => async (_request, response) => {
+      sendJson(response, 200, {});
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      throw error;
+    }],
+  ];
+
+  for (const [name, createHandler] of cases) {
+    await t.test(name, async () => {
+      const expected = new Error(name + " handler failed");
+
+      await assert.rejects(
+        withServer(createHandler(expected), async (baseUrl) => {
+          await fetch(baseUrl);
+        }),
+        (error) => error === expected,
+      );
+    });
+  }
+});
+
 test("listCranes maps supported filters to the public REST collection", async () => {
   await withServer((request, response) => {
     assert.equal(request.method, "GET");
@@ -32,6 +58,18 @@ test("listCranes maps supported filters to the public REST collection", async ()
 
     assert.equal(result.data[0].id, "crane-1");
     assert.equal(result.total, 1);
+  });
+});
+
+test("listCranes preserves a configured base URL path", async () => {
+  await withServer((request, response) => {
+    assert.equal(request.url, "/proxy/v1/api/v1/cranes");
+    sendJson(response, 200, { data: [] });
+  }, async (baseUrl) => {
+    const client = new GkmexClient({ baseUrl: baseUrl + "/proxy/v1/" });
+    const result = await client.listCranes();
+
+    assert.deepEqual(result.data, []);
   });
 });
 

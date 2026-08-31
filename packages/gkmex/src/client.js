@@ -15,7 +15,7 @@ export class GkmexClient {
   }
 
   async listCranes(options = {}) {
-    const url = new URL("/api/v1/cranes", this.baseUrl);
+    const url = new URL("api/v1/cranes", this.baseUrl);
     for (const key of ["limit", "offset", "cursor", "brand", "type"]) {
       if (options[key] !== undefined) {
         url.searchParams.set(key, String(options[key]));
@@ -29,7 +29,7 @@ export class GkmexClient {
 
   async getCrane(id) {
     const url = new URL(
-      "/api/v1/cranes/" + encodeURIComponent(String(id)),
+      "api/v1/cranes/" + encodeURIComponent(String(id)),
       this.baseUrl,
     );
     const response = await this.fetch(url, {
