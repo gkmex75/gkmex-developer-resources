@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "gkmex": "./bin/gkmex.js"
+    "gkmex": "bin/gkmex.js"
   },
   "files": [
     "bin",

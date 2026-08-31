@@ -7,6 +7,15 @@ import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
+const expectedPackPaths = [
+  "LICENSE",
+  "README.md",
+  "bin/gkmex.js",
+  "package.json",
+  "src/client.js",
+  "src/index.d.ts",
+  "src/index.js",
+];
 
 const expectedMetadata = {
   name: "gkmex",
@@ -22,7 +31,7 @@ const expectedMetadata = {
       import: "./src/index.js",
     },
   },
-  bin: { gkmex: "./bin/gkmex.js" },
+  bin: { gkmex: "bin/gkmex.js" },
   files: ["bin", "src", "README.md", "LICENSE"],
   scripts: {
     test: "node --test test/client.test.js test/cli.test.js test/package.test.js",
@@ -129,6 +138,20 @@ test("TypeScript declarations match every exported runtime API", async () => {
   assert.equal(declarations, expectedDeclarations);
 });
 
+test("runtime exports exactly match the declared public classes", async () => {
+  const [runtime, declarations] = await Promise.all([
+    import("../src/index.js"),
+    readFile(new URL("../src/index.d.ts", import.meta.url), "utf8"),
+  ]);
+  const runtimeExports = Object.keys(runtime).sort();
+  const declaredClasses = [...declarations.matchAll(/^export class (\w+)/gm)]
+    .map((match) => match[1])
+    .sort();
+
+  assert.deepEqual(runtimeExports, ["GkmexClient", "GkmexError"]);
+  assert.deepEqual(declaredClasses, runtimeExports);
+});
+
 test("README documents SDK, CLI, and the public-data boundaries", async () => {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   const requiredPatterns = [
@@ -171,7 +194,9 @@ test("package license exactly matches the repository MIT license", async () => {
 
 test("CLI source is executable", async () => {
   const executable = await stat(new URL("../bin/gkmex.js", import.meta.url));
-  assert.equal(executable.mode & 0o777, 0o755);
+  if (process.platform !== "win32") {
+    assert.equal(executable.mode & 0o777, 0o755);
+  }
 });
 
 test("npm pack contains only the seven public package files", async () => {
@@ -189,20 +214,34 @@ test("npm pack contains only the seven public package files", async () => {
   assert.equal(packed.entryCount, 7);
   assert.deepEqual(
     packed.files.map((file) => file.path).sort(),
-    [
-      "LICENSE",
-      "README.md",
-      "bin/gkmex.js",
-      "package.json",
-      "src/client.js",
-      "src/index.d.ts",
-      "src/index.js",
-    ],
+    expectedPackPaths,
   );
 
   const cliEntry = packed.files.find((file) => file.path === "bin/gkmex.js");
   assert.ok(cliEntry);
-  if (Object.hasOwn(cliEntry, "mode")) {
-    assert.notEqual(cliEntry.mode & 0o111, 0);
+  if (process.platform !== "win32" && Object.hasOwn(cliEntry, "mode")) {
+    assert.equal(cliEntry.mode & 0o777, 0o755);
   }
+});
+
+test("npm publish dry-run does not auto-correct package metadata", async () => {
+  const manifestUrl = new URL("../package.json", import.meta.url);
+  const before = await readFile(manifestUrl, "utf8");
+  const { stdout, stderr } = await execFileAsync(
+    "npm",
+    ["publish", "--dry-run", "--json"],
+    { cwd: packageDirectory },
+  );
+  const published = JSON.parse(stdout);
+
+  assert.equal(published.id, "gkmex@1.0.0");
+  assert.deepEqual(
+    published.files.map((file) => file.path).sort(),
+    expectedPackPaths,
+  );
+  assert.doesNotMatch(
+    stderr,
+    /npm auto-corrected|errors corrected|script name was cleaned/i,
+  );
+  assert.equal(await readFile(manifestUrl, "utf8"), before);
 });
