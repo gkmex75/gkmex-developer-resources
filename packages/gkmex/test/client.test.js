@@ -297,6 +297,24 @@ test("invalid JSON responses become stable GkmexError instances", async () => {
   });
 });
 
+test("malformed non-2xx MCP JSON preserves status and parse cause", async () => {
+  await withServer((_request, response) => {
+    response.writeHead(502, { "content-type": "application/json" });
+    response.end("{");
+  }, async (baseUrl) => {
+    await assert.rejects(
+      new GkmexClient({ baseUrl }).compareCranes(["crane-1", "crane-2"]),
+      (error) => {
+        assert.ok(error instanceof GkmexError);
+        assert.equal(error.message, "Gkmex returned invalid JSON");
+        assert.equal(error.status, 502);
+        assert.ok(error.cause instanceof SyntaxError);
+        return true;
+      },
+    );
+  });
+});
+
 test("getCrane rejects non-canonical IDs without fetching", async (t) => {
   let fetchCalls = 0;
   const client = new GkmexClient({
@@ -490,6 +508,38 @@ test("compareCranes turns MCP tool errors into stable errors", async (t) => {
             assert.ok(error instanceof GkmexError);
             assert.equal(error.message, expectedMessage);
             assert.equal(error.status, 200);
+            return true;
+          },
+        );
+      });
+    });
+  }
+});
+
+test("compareCranes rejects non-boolean result.isError", async (t) => {
+  for (const value of ["true", 1, null]) {
+    await t.test(JSON.stringify(value), async () => {
+      await withServer((_request, response) => {
+        sendJson(response, 200, {
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            isError: value,
+            structuredContent: comparisonData(),
+          },
+        });
+      }, async (baseUrl) => {
+        await assert.rejects(
+          new GkmexClient({ baseUrl }).compareCranes([
+            "crane-1",
+            "crane-2",
+          ]),
+          (error) => {
+            assert.ok(error instanceof GkmexError);
+            assert.equal(
+              error.message,
+              "Gkmex returned an unexpected MCP result",
+            );
             return true;
           },
         );

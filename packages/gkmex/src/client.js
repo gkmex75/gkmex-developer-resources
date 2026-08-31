@@ -123,6 +123,12 @@ function comparisonFrom(payload, status) {
   if (envelopeKind(payload) !== "result" || !isObject(payload.result)) {
     throw new GkmexError(UNEXPECTED_MCP_RESULT);
   }
+  if (
+    Object.hasOwn(payload.result, "isError") &&
+    typeof payload.result.isError !== "boolean"
+  ) {
+    throw new GkmexError(UNEXPECTED_MCP_RESULT);
+  }
 
   if (payload.result.isError === true) {
     const firstText = Array.isArray(payload.result.content)
@@ -251,7 +257,6 @@ export class GkmexClient {
     if (isJsonMediaType(type)) {
       const decoded = await this.#decodeJson(response);
       if (decoded.cause) {
-        if (!response.ok) throw httpError(response);
         throw new GkmexError("Gkmex returned invalid JSON", {
           status: response.status,
           cause: decoded.cause,
