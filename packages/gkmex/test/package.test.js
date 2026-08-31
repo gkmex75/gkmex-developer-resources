@@ -233,16 +233,46 @@ test("npm pack contains only the seven public package files", async () => {
   }
 });
 
-test("npm publish dry-run does not auto-correct package metadata", async () => {
+test("npm publish dry-run keeps canonical metadata before and after release", async () => {
   const manifestUrl = new URL("../package.json", import.meta.url);
   const before = await readFile(manifestUrl, "utf8");
-  const { stdout, stderr } = await execFileAsync(
-    "npm",
-    ["publish", "--dry-run", "--json"],
-    { cwd: packageDirectory },
-  );
-  const published = JSON.parse(stdout);
+  assert.deepEqual(JSON.parse(before), expectedMetadata);
 
+  let publishResult;
+  try {
+    publishResult = await execFileAsync(
+      "npm",
+      ["publish", "--dry-run", "--json"],
+      { cwd: packageDirectory },
+    );
+  } catch (error) {
+    const stdout = typeof error.stdout === "string" ? error.stdout : "";
+    const stderr = typeof error.stderr === "string" ? error.stderr : "";
+    const output = `${stdout}\n${stderr}`;
+    const isPublishedVersion =
+      error.code === 1 &&
+      output.includes(
+        "You cannot publish over the previously published versions: 1.0.0.",
+      ) &&
+      !/\b(?:E?401|E?403|E?404|EAUTH|ENEEDAUTH|ENETWORK|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|auth(?:entication|orization)?|network|login)\b/i.test(
+        output,
+      );
+
+    if (!isPublishedVersion) throw error;
+    publishResult = { stdout, stderr, alreadyPublished: true };
+  }
+
+  const { stdout, stderr, alreadyPublished = false } = publishResult;
+
+  assert.doesNotMatch(
+    stderr,
+    /npm warn[^\n]*(?:correct(?:ed|ion)|cleaned)|npm auto-corrected|errors corrected|script name was cleaned/i,
+  );
+  assert.equal(await readFile(manifestUrl, "utf8"), before);
+
+  if (alreadyPublished) return;
+
+  const published = JSON.parse(stdout);
   assert.equal(published.id, expectedPackageName + "@1.0.0");
   assert.equal(published.name, expectedPackageName);
   assert.equal(published.filename, expectedTarballName);
@@ -250,9 +280,4 @@ test("npm publish dry-run does not auto-correct package metadata", async () => {
     published.files.map((file) => file.path).sort(),
     expectedPackPaths,
   );
-  assert.doesNotMatch(
-    stderr,
-    /npm auto-corrected|errors corrected|script name was cleaned/i,
-  );
-  assert.equal(await readFile(manifestUrl, "utf8"), before);
 });
