@@ -4,6 +4,22 @@ import test from "node:test";
 import { GkmexClient, GkmexError } from "../src/index.js";
 import { readJson, sendJson, withServer } from "./helpers.js";
 
+function comparisonData(ids = ["crane-1", "crane-2"]) {
+  return {
+    updated_at: "2026-08-31",
+    count: ids.length,
+    data: ids.map((id) => ({ id, price_eur: null })),
+  };
+}
+
+function mcpResult(structuredContent = comparisonData()) {
+  return {
+    jsonrpc: "2.0",
+    id: 1,
+    result: { structuredContent },
+  };
+}
+
 test("withServer surfaces handler errors and closes connections", async (t) => {
   const cases = [
     ["synchronous", (error) => () => {
@@ -97,12 +113,7 @@ test("getCrane percent-encodes the public ID and preserves POA", async () => {
 });
 
 test("compareCranes delegates to MCP and preserves the input order", async () => {
-  const expected = {
-    cranes: [
-      { id: "crane-1", price_eur: null },
-      { id: "crane-2", price_eur: 120000 },
-    ],
-  };
+  const expected = comparisonData();
 
   await withServer(async (request, response) => {
     assert.equal(request.method, "POST");
@@ -121,17 +132,13 @@ test("compareCranes delegates to MCP and preserves the input order", async () =>
         arguments: { ids: ["crane-1", "crane-2"] },
       },
     });
-    sendJson(response, 200, {
-      jsonrpc: "2.0",
-      id: 1,
-      result: { structuredContent: expected },
-    });
+    sendJson(response, 200, mcpResult(expected));
   }, async (baseUrl) => {
     const client = new GkmexClient({ baseUrl });
     const result = await client.compareCranes(["crane-1", "crane-2"]);
 
     assert.deepEqual(result, expected);
-    assert.equal(result.cranes[0].price_eur, null);
+    assert.equal(result.data[0].price_eur, null);
   });
 });
 
@@ -142,14 +149,12 @@ test("compareCranes preserves a configured base URL path", async () => {
       "crane-2",
       "crane-1",
     ]);
-    sendJson(response, 200, {
-      result: { structuredContent: { cranes: [] } },
-    });
+    sendJson(response, 200, mcpResult(comparisonData([])));
   }, async (baseUrl) => {
     const client = new GkmexClient({ baseUrl: baseUrl + "/proxy/v1/" });
     const result = await client.compareCranes(["crane-2", "crane-1"]);
 
-    assert.deepEqual(result, { cranes: [] });
+    assert.deepEqual(result, comparisonData([]));
   });
 });
 
@@ -162,6 +167,12 @@ test("compareCranes rejects invalid IDs without fetching", async (t) => {
       ["crane-1", "crane-2", "crane-3", "crane-4", "crane-5", "crane-6"],
     ],
     ["an empty ID", ["crane-1", ""]],
+    ["a non-string ID", ["crane-1", 2]],
+    ["a blank ID", ["crane-1", "  "]],
+    ["leading whitespace", ["crane-1", " crane-2"]],
+    ["trailing whitespace", ["crane-1", "crane-2 "]],
+    ["a dot segment", ["crane-1", "."]],
+    ["a parent segment", ["crane-1", ".."]],
   ];
 
   for (const [name, ids] of cases) {
@@ -208,7 +219,7 @@ test("getCrane maps public REST errors to GkmexError", async () => {
 test("compareCranes maps JSON-RPC errors to GkmexError", async () => {
   await withServer(async (request, response) => {
     await readJson(request);
-    sendJson(response, 200, {
+    sendJson(response, 422, {
       jsonrpc: "2.0",
       id: 1,
       error: {
@@ -227,7 +238,7 @@ test("compareCranes maps JSON-RPC errors to GkmexError", async () => {
         assert.equal(error.message, "Crane not found");
         assert.equal(error.code, -32602);
         assert.deepEqual(error.details, { id: "missing" });
-        assert.equal("status" in error, false);
+        assert.equal(error.status, 422);
         return true;
       },
     );
@@ -286,7 +297,7 @@ test("invalid JSON responses become stable GkmexError instances", async () => {
   });
 });
 
-test("getCrane rejects an empty ID without fetching", async () => {
+test("getCrane rejects non-canonical IDs without fetching", async (t) => {
   let fetchCalls = 0;
   const client = new GkmexClient({
     fetch: async () => {
@@ -295,18 +306,30 @@ test("getCrane rejects an empty ID without fetching", async () => {
     },
   });
 
-  await assert.rejects(client.getCrane("  "), (error) => {
-    assert.ok(error instanceof GkmexError);
-    assert.equal(error.message, "id must be a non-empty public crane ID");
-    return true;
-  });
+  for (const [name, id] of [
+    ["non-string", 2],
+    ["empty", ""],
+    ["blank", "  "],
+    ["leading whitespace", " crane-1"],
+    ["trailing whitespace", "crane-1 "],
+    ["dot segment", "."],
+    ["parent segment", ".."],
+  ]) {
+    await t.test(name, async () => {
+      await assert.rejects(client.getCrane(id), (error) => {
+        assert.ok(error instanceof GkmexError);
+        assert.equal(error.message, "id must be a non-empty public crane ID");
+        return true;
+      });
+    });
+  }
   assert.equal(fetchCalls, 0);
 });
 
 test("compareCranes rejects an unexpected MCP result", async () => {
   await withServer(async (request, response) => {
     await readJson(request);
-    sendJson(response, 200, { result: { structuredContent: null } });
+    sendJson(response, 200, mcpResult(null));
   }, async (baseUrl) => {
     const client = new GkmexClient({ baseUrl });
 
@@ -319,4 +342,290 @@ test("compareCranes rejects an unexpected MCP result", async () => {
       },
     );
   });
+});
+
+test("JSON media-type parsing accepts suffixes and rejects lookalikes", async (t) => {
+  await t.test("accepts application/*+json", async () => {
+    await withServer((_request, response) => {
+      response.writeHead(200, {
+        "content-type": "Application/Problem+JSON ; charset=UTF-8",
+      });
+      response.end(JSON.stringify({ data: [] }));
+    }, async (baseUrl) => {
+      const result = await new GkmexClient({ baseUrl }).listCranes();
+      assert.deepEqual(result, { data: [] });
+    });
+  });
+
+  await t.test("rejects application/jsonp", async () => {
+    await withServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/jsonp" });
+      response.end(JSON.stringify({ data: [] }));
+    }, async (baseUrl) => {
+      await assert.rejects(
+        new GkmexClient({ baseUrl }).listCranes(),
+        (error) => {
+          assert.ok(error instanceof GkmexError);
+          assert.equal(
+            error.message,
+            "Gkmex returned an unexpected response",
+          );
+          assert.equal(error.status, 200);
+          return true;
+        },
+      );
+    });
+  });
+});
+
+test("REST endpoints reject event-stream responses", async () => {
+  await withServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    response.end("data: {}\n\n");
+  }, async (baseUrl) => {
+    await assert.rejects(
+      new GkmexClient({ baseUrl }).listCranes(),
+      (error) => {
+        assert.ok(error instanceof GkmexError);
+        assert.equal(error.message, "Gkmex returned an unexpected response");
+        return true;
+      },
+    );
+  });
+});
+
+test("compareCranes uses stable HTTP errors for non-RPC failures", async () => {
+  await withServer((_request, response) => {
+    sendJson(response, 503, { error: "MCP unavailable" });
+  }, async (baseUrl) => {
+    await assert.rejects(
+      new GkmexClient({ baseUrl }).compareCranes(["crane-1", "crane-2"]),
+      (error) => {
+        assert.ok(error instanceof GkmexError);
+        assert.equal(error.message, "MCP unavailable");
+        assert.equal(error.status, 503);
+        assert.deepEqual(error.details, { error: "MCP unavailable" });
+        assert.equal("code" in error, false);
+        return true;
+      },
+    );
+  });
+});
+
+test("compareCranes validates JSON-RPC response envelopes", async (t) => {
+  const validResult = { structuredContent: comparisonData() };
+  const cases = [
+    ["non-object", []],
+    ["wrong version", { jsonrpc: "1.0", id: 1, result: validResult }],
+    ["mismatched ID", { jsonrpc: "2.0", id: 2, result: validResult }],
+    [
+      "both result and error",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        result: validResult,
+        error: { code: -32603, message: "bad" },
+      },
+    ],
+    ["neither result nor error", { jsonrpc: "2.0", id: 1 }],
+  ];
+
+  for (const [name, payload] of cases) {
+    await t.test(name, async () => {
+      await withServer((_request, response) => {
+        sendJson(response, 200, payload);
+      }, async (baseUrl) => {
+        await assert.rejects(
+          new GkmexClient({ baseUrl }).compareCranes([
+            "crane-1",
+            "crane-2",
+          ]),
+          (error) => {
+            assert.ok(error instanceof GkmexError);
+            assert.equal(
+              error.message,
+              "Gkmex returned an unexpected MCP result",
+            );
+            return true;
+          },
+        );
+      });
+    });
+  }
+});
+
+test("compareCranes turns MCP tool errors into stable errors", async (t) => {
+  const cases = [
+    [
+      "first text content",
+      [
+        { type: "image", data: "ignored" },
+        { type: "text", text: 123 },
+        { type: "text", text: "Comparison failed" },
+        { type: "text", text: "Later detail" },
+      ],
+      "Comparison failed",
+    ],
+    ["fallback", undefined, "Gkmex MCP tool returned an error"],
+  ];
+
+  for (const [name, content, expectedMessage] of cases) {
+    await t.test(name, async () => {
+      await withServer((_request, response) => {
+        sendJson(response, 200, {
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            isError: true,
+            ...(content === undefined ? {} : { content }),
+          },
+        });
+      }, async (baseUrl) => {
+        await assert.rejects(
+          new GkmexClient({ baseUrl }).compareCranes([
+            "crane-1",
+            "crane-2",
+          ]),
+          (error) => {
+            assert.ok(error instanceof GkmexError);
+            assert.equal(error.message, expectedMessage);
+            assert.equal(error.status, 200);
+            return true;
+          },
+        );
+      });
+    });
+  }
+});
+
+test("compareCranes validates structured comparison content", async (t) => {
+  const cases = [
+    ["missing updated_at", { count: 0, data: [] }],
+    ["non-integer count", { updated_at: "now", count: 0.5, data: [] }],
+    ["non-array data", { updated_at: "now", count: 0, data: {} }],
+    ["inconsistent count", { updated_at: "now", count: 1, data: [] }],
+  ];
+
+  for (const [name, structuredContent] of cases) {
+    await t.test(name, async () => {
+      await withServer((_request, response) => {
+        sendJson(response, 200, mcpResult(structuredContent));
+      }, async (baseUrl) => {
+        await assert.rejects(
+          new GkmexClient({ baseUrl }).compareCranes([
+            "crane-1",
+            "crane-2",
+          ]),
+          (error) => {
+            assert.ok(error instanceof GkmexError);
+            assert.equal(
+              error.message,
+              "Gkmex returned an unexpected MCP result",
+            );
+            return true;
+          },
+        );
+      });
+    });
+  }
+});
+
+test("compareCranes reads a matching JSON-RPC response from SSE", async () => {
+  const expected = comparisonData(["crane-2", "crane-1"]);
+  const notification = {
+    jsonrpc: "2.0",
+    method: "notifications/progress",
+    params: { progress: 0.5 },
+  };
+  const serverRequest = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "sampling/createMessage",
+    params: {},
+  };
+  const mismatched = {
+    jsonrpc: "2.0",
+    id: 2,
+    result: { structuredContent: comparisonData([]) },
+  };
+  const result = JSON.stringify({ structuredContent: expected });
+  const body = [
+    ": keepalive",
+    "event: message",
+    "data: " + JSON.stringify(notification),
+    "",
+    "id: server-request",
+    "data: " + JSON.stringify(serverRequest),
+    "",
+    "retry: 1000",
+    "data: " + JSON.stringify(mismatched),
+    "",
+    "event: message",
+    'data: {"jsonrpc":"2.0",',
+    'data: "id":1,"result":' + result + "}",
+    "",
+    "",
+  ].join("\n");
+
+  await withServer((_request, response) => {
+    response.writeHead(200, {
+      "content-type": "Text/Event-Stream ; charset=utf-8",
+    });
+    response.end(body);
+  }, async (baseUrl) => {
+    const actual = await new GkmexClient({ baseUrl }).compareCranes([
+      "crane-2",
+      "crane-1",
+    ]);
+    assert.deepEqual(actual, expected);
+  });
+});
+
+test("compareCranes rejects malformed or unmatched SSE responses", async (t) => {
+  const cases = [
+    ["malformed data", "data: {\n\n"],
+    [
+      "no matching response",
+      [
+        "data: " +
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "notifications/progress",
+          }),
+        "",
+        "data: " +
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 2,
+            result: { structuredContent: comparisonData([]) },
+          }),
+        "",
+        "",
+      ].join("\n"),
+    ],
+  ];
+
+  for (const [name, body] of cases) {
+    await t.test(name, async () => {
+      await withServer((_request, response) => {
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        response.end(body);
+      }, async (baseUrl) => {
+        await assert.rejects(
+          new GkmexClient({ baseUrl }).compareCranes([
+            "crane-1",
+            "crane-2",
+          ]),
+          (error) => {
+            assert.ok(error instanceof GkmexError);
+            assert.equal(
+              error.message,
+              "Gkmex returned an unexpected MCP result",
+            );
+            return true;
+          },
+        );
+      });
+    });
+  }
 });
