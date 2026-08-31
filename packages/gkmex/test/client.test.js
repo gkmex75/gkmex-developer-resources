@@ -9,7 +9,10 @@ test("withServer surfaces handler errors and closes connections", async (t) => {
     ["synchronous", (error) => () => {
       throw error;
     }],
-    ["asynchronous", (error) => async (_request, response) => {
+    ["immediate asynchronous", (error) => async () => {
+      throw error;
+    }],
+    ["delayed asynchronous", (error) => async (_request, response) => {
       sendJson(response, 200, {});
       await new Promise((resolve) => setTimeout(resolve, 20));
       throw error;
