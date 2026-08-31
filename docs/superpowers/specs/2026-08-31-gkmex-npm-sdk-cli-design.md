@@ -1,5 +1,7 @@
 # Gkmex npm SDK and CLI Design
 
+> **Registry-name correction — 2026-08-31:** npm rejected the unscoped `gkmex` package with E403 because the name was too similar to `knex` and suggested the authenticated account's scope. The owner selected `@gstcranes/gkmex`, which was unclaimed when checked. Every earlier package-name, install, import, availability-check, tarball-name, publication, and registry-URL instruction that uses unscoped `gkmex` is superseded by `@gstcranes/gkmex`. The installed CLI binary remains `gkmex`.
+
 > **Production-contract correction — 2026-08-31:** Local and production MCP discovery confirmed that the public server exposes `list_cranes` and `get_crane`; it does not expose a `compare_cranes` tool. A read-only production `tools/call` to `list_cranes` with empty arguments returned HTTP 200, all 29 published records, and the sampled public IDs and URLs. Any earlier `compare_cranes` statement is superseded. `compareCranes` now calls the supported `list_cranes` tool and locally selects the requested records in caller order, without adding comparison or availability logic.
 
 ## Goal

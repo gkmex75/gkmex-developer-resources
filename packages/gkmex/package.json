@@ -1,5 +1,5 @@
 {
-  "name": "gkmex",
+  "name": "@gstcranes/gkmex",
   "version": "1.0.0",
   "description": "Zero-auth JavaScript SDK and CLI for the public Gkmex used-crane inventory.",
   "type": "module",

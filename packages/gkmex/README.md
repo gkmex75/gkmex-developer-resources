@@ -9,13 +9,13 @@ Node.js 20 or newer.
 ## Install
 
 ```bash
-npm install gkmex
+npm install @gstcranes/gkmex
 ```
 
 ## JavaScript SDK
 
 ```js
-import { GkmexClient } from "gkmex";
+import { GkmexClient } from "@gstcranes/gkmex";
 
 const client = new GkmexClient();
 
@@ -46,10 +46,12 @@ Available methods:
 ## CLI
 
 ```bash
-npx gkmex list --type mobile --limit 5
-npx gkmex get crane-public-id
-npx gkmex compare first-public-id second-public-id
+npx --package @gstcranes/gkmex gkmex list --type mobile --limit 5
+npx --package @gstcranes/gkmex gkmex get crane-public-id
+npx --package @gstcranes/gkmex gkmex compare first-public-id second-public-id
 ```
+
+The installed local or global CLI binary remains `gkmex`.
 
 Every successful command prints JSON. Invalid usage exits 2. API or network errors exit 1 and print a concise message to stderr.
 

@@ -16,9 +16,11 @@ const expectedPackPaths = [
   "src/index.d.ts",
   "src/index.js",
 ];
+const expectedPackageName = "@gstcranes/gkmex";
+const expectedTarballName = "gstcranes-gkmex-1.0.0.tgz";
 
 const expectedMetadata = {
-  name: "gkmex",
+  name: expectedPackageName,
   version: "1.0.0",
   description:
     "Zero-auth JavaScript SDK and CLI for the public Gkmex used-crane inventory.",
@@ -156,16 +158,17 @@ test("README documents SDK, CLI, and the public-data boundaries", async () => {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   const requiredPatterns = [
     /Node\.js 20 or newer/,
-    /npm install gkmex/,
-    /import \{ GkmexClient \} from "gkmex"/,
+    /npm install @gstcranes\/gkmex/,
+    /import \{ GkmexClient \} from "@gstcranes\/gkmex"/,
     /client\.listCranes/,
     /client\.getCrane/,
     /client\.compareCranes/,
     /read-only MCP `list_cranes` inventory/,
     /selected cranes in the requested order/,
-    /npx gkmex list/,
-    /npx gkmex get/,
-    /npx gkmex compare/,
+    /npx --package @gstcranes\/gkmex gkmex list/,
+    /npx --package @gstcranes\/gkmex gkmex get/,
+    /npx --package @gstcranes\/gkmex gkmex compare/,
+    /binary remains `gkmex`/,
     /Every successful command prints JSON/,
     /Invalid usage exits 2/,
     /API or network errors exit 1/,
@@ -182,6 +185,8 @@ test("README documents SDK, CLI, and the public-data boundaries", async () => {
   ];
 
   for (const pattern of requiredPatterns) assert.match(readme, pattern);
+  assert.doesNotMatch(readme, /npm install gkmex(?:\s|$)/);
+  assert.doesNotMatch(readme, /from "gkmex"/);
   assert.doesNotMatch(readme, /published (?:on|to) npm/i);
 });
 
@@ -211,8 +216,10 @@ test("npm pack contains only the seven public package files", async () => {
   assert.equal(result.length, 1);
 
   const [packed] = result;
-  assert.equal(packed.name, "gkmex");
+  assert.equal(packed.id, expectedPackageName + "@1.0.0");
+  assert.equal(packed.name, expectedPackageName);
   assert.equal(packed.version, "1.0.0");
+  assert.equal(packed.filename, expectedTarballName);
   assert.equal(packed.entryCount, 7);
   assert.deepEqual(
     packed.files.map((file) => file.path).sort(),
@@ -236,7 +243,9 @@ test("npm publish dry-run does not auto-correct package metadata", async () => {
   );
   const published = JSON.parse(stdout);
 
-  assert.equal(published.id, "gkmex@1.0.0");
+  assert.equal(published.id, expectedPackageName + "@1.0.0");
+  assert.equal(published.name, expectedPackageName);
+  assert.equal(published.filename, expectedTarballName);
   assert.deepEqual(
     published.files.map((file) => file.path).sort(),
     expectedPackPaths,
