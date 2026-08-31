@@ -1,0 +1,50 @@
+{
+  "name": "@gstcranes/gkmex",
+  "version": "1.0.0",
+  "description": "Zero-auth JavaScript SDK and CLI for the public Gkmex used-crane inventory.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "bin": {
+    "gkmex": "bin/gkmex.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/client.test.js test/cli.test.js test/package.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gkmex75/gkmex-developer-resources.git",
+    "directory": "packages/gkmex"
+  },
+  "homepage": "https://gkmex.com/developers",
+  "bugs": {
+    "url": "https://github.com/gkmex75/gkmex-developer-resources/issues"
+  },
+  "keywords": [
+    "gkmex",
+    "cranes",
+    "sdk",
+    "cli",
+    "mcp",
+    "inventory"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
