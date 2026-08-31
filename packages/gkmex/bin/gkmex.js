@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 
+import { writeSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
 import { GkmexClient, GkmexError } from "../src/index.js";
+
+process.stdout.on("error", (error) => {
+  if (error?.code === "EPIPE") process.exit(0);
+  try {
+    writeSync(2, "Unexpected Gkmex CLI failure\n");
+  } catch {
+    // stderr is unavailable, so only the nonzero status can be preserved.
+  }
+  process.exit(1);
+});
 
 const usage = `Usage:
   gkmex list [--brand <brand>] [--type <mobile|crawler>] [--limit <1-100>] [--offset <n>] [--cursor <token>]

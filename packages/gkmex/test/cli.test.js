@@ -15,7 +15,10 @@ const usage = `Usage:
   gkmex --version
 `;
 
-function runCli(args, { baseUrl, env = {} } = {}) {
+function runCli(
+  args,
+  { baseUrl, closeStdout = false, env = {}, timeoutMs = 5000 } = {},
+) {
   return new Promise((resolve, reject) => {
     const childEnv = { ...process.env, ...env };
     if (baseUrl === undefined && !Object.hasOwn(env, "GKMEX_BASE_URL")) {
@@ -31,18 +34,55 @@ function runCli(args, { baseUrl, env = {} } = {}) {
     });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    let timedOut = false;
+    let timeout;
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
+
+    const onStdout = (chunk) => {
       stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
+    };
+    const onStderr = (chunk) => {
       stderr += chunk;
-    });
-    child.once("error", reject);
-    child.once("close", (code, signal) => {
-      resolve({ code, signal, stdout, stderr });
-    });
+    };
+    const cleanup = () => {
+      clearTimeout(timeout);
+      child.removeListener("error", onError);
+      child.removeListener("close", onClose);
+      child.stdout.removeListener("data", onStdout);
+      child.stderr.removeListener("data", onStderr);
+    };
+    const settle = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback(value);
+    };
+    const timeoutError = () => new Error(
+      "Gkmex CLI timed out after " + timeoutMs + " ms",
+    );
+    function onError(error) {
+      settle(reject, timedOut ? timeoutError() : error);
+    }
+    function onClose(code, signal) {
+      if (timedOut) {
+        settle(reject, timeoutError());
+      } else {
+        settle(resolve, { code, signal, stdout, stderr });
+      }
+    }
+
+    child.stdout.on("data", onStdout);
+    child.stderr.on("data", onStderr);
+    child.once("error", onError);
+    child.once("close", onClose);
+    timeout = setTimeout(() => {
+      if (settled) return;
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
+    if (closeStdout) child.stdout.destroy();
   });
 }
 
@@ -305,4 +345,52 @@ test("unexpected failures do not leak stacks or internal messages", async () => 
     stdout: "",
     stderr: "Unexpected Gkmex CLI failure\n",
   });
+});
+
+test("a closed stdout pipeline exits quietly", async () => {
+  const largeResult = {
+    data: Array.from({ length: 4096 }, (_, index) => ({
+      id: "crane-" + index,
+      description: "x".repeat(512),
+      price_eur: null,
+    })),
+  };
+
+  await withServer((_request, response) => {
+    sendJson(response, 200, largeResult);
+  }, async (baseUrl) => {
+    const result = await runCli(["list"], { baseUrl, closeStdout: true });
+    assert.deepEqual(result, {
+      code: 0,
+      signal: null,
+      stdout: "",
+      stderr: "",
+    });
+  });
+});
+
+test("runCli times out and kills a stuck child process", async () => {
+  let connectionClosed = false;
+
+  await withServer((_request, response) => new Promise((resolve) => {
+    const fallback = setTimeout(() => {
+      response.destroy();
+      resolve();
+    }, 1200);
+    response.once("close", () => {
+      clearTimeout(fallback);
+      connectionClosed = true;
+      resolve();
+    });
+  }), async (baseUrl) => {
+    await assert.rejects(
+      runCli(["list"], { baseUrl, timeoutMs: 250 }),
+      (error) => {
+        assert.equal(error.message, "Gkmex CLI timed out after 250 ms");
+        return true;
+      },
+    );
+  });
+
+  assert.equal(connectionClosed, true);
 });
