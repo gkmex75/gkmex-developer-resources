@@ -1,1 +1,1 @@
-export { GkmexClient } from "./client.js";
+export { GkmexClient, GkmexError } from "./client.js";
