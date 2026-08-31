@@ -246,8 +246,8 @@ export class GkmexClient {
         id: 1,
         method: "tools/call",
         params: {
-          name: "compare_cranes",
-          arguments: { ids },
+          name: "list_cranes",
+          arguments: {},
         },
       }),
     });
@@ -292,6 +292,14 @@ export class GkmexClient {
       });
     }
     if (!response.ok) throw httpError(response, payload);
-    return comparisonFrom(payload, response.status);
+    const inventory = comparisonFrom(payload, response.status);
+    const cranesById = new Map(inventory.data.map((crane) => [crane?.id, crane]));
+    const data = ids.map((id) => {
+      if (!cranesById.has(id)) {
+        throw new GkmexError("Crane not found: " + id);
+      }
+      return cranesById.get(id);
+    });
+    return { updated_at: inventory.updated_at, count: ids.length, data };
   }
 }

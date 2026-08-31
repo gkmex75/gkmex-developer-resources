@@ -161,6 +161,8 @@ test("README documents SDK, CLI, and the public-data boundaries", async () => {
     /client\.listCranes/,
     /client\.getCrane/,
     /client\.compareCranes/,
+    /read-only MCP `list_cranes` inventory/,
+    /selected cranes in the requested order/,
     /npx gkmex list/,
     /npx gkmex get/,
     /npx gkmex compare/,

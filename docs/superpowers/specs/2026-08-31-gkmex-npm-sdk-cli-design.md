@@ -1,5 +1,7 @@
 # Gkmex npm SDK and CLI Design
 
+> **Production-contract correction — 2026-08-31:** Local and production MCP discovery confirmed that the public server exposes `list_cranes` and `get_crane`; it does not expose a `compare_cranes` tool. A read-only production `tools/call` to `list_cranes` with empty arguments returned HTTP 200, all 29 published records, and the sampled public IDs and URLs. Any earlier `compare_cranes` statement is superseded. `compareCranes` now calls the supported `list_cranes` tool and locally selects the requested records in caller order, without adding comparison or availability logic.
+
 ## Goal
 
 Publish a real, useful `gkmex` npm package that gives developers and command-line users zero-auth, read-only access to the public Gkmex crane inventory. The package must reflect live Gkmex behavior rather than introduce score-only claims or duplicate server-owned comparison logic.
@@ -65,7 +67,7 @@ const comparison = await client.compareCranes([
 
 `getCrane(id)` calls `GET /api/v1/cranes/{id}` after rejecting an empty ID locally.
 
-`compareCranes(ids)` accepts two to five unique, non-empty public IDs and calls the live MCP `compare_cranes` tool at `POST /mcp`. The package returns the structured comparison content produced by Gkmex. It does not reimplement comparison rules or infer availability.
+`compareCranes(ids)` accepts two to five unique, non-empty public IDs and calls the live MCP `list_cranes` tool at `POST /mcp` with empty arguments. After validating the returned inventory shape, the package selects exactly those public IDs in caller order. It does not add comparison rules or infer availability.
 
 Every crane record is returned unchanged. In particular, `price_eur: null` remains POA and is never converted to zero. The package does not add reservation, checkout, authentication, availability, or write operations.
 
@@ -73,7 +75,7 @@ Every crane record is returned unchanged. In particular, `price_eur: null` remai
 
 For REST methods, the client builds a URL relative to `baseUrl`, sends a GET request with `accept: application/json`, checks the status and content type, and returns the decoded JSON document.
 
-For comparison, the client sends one JSON-RPC 2.0 `tools/call` request with tool name `compare_cranes` and the supplied IDs. It accepts the JSON response, rejects a JSON-RPC error, and decodes the tool's structured JSON result. The request is stateless and requires no MCP session or authentication.
+For comparison, the client sends one JSON-RPC 2.0 `tools/call` request with tool name `list_cranes` and empty arguments. It accepts the JSON response, rejects a JSON-RPC error, validates the structured inventory, and selects the requested records locally in caller order. The request is stateless and requires no MCP session or authentication.
 
 The CLI creates the same `GkmexClient` and delegates every operation to it. There is no second HTTP implementation in the CLI.
 

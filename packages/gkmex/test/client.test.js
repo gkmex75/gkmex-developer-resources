@@ -112,8 +112,33 @@ test("getCrane percent-encodes the public ID and preserves POA", async () => {
   });
 });
 
-test("compareCranes delegates to MCP and preserves the input order", async () => {
-  const expected = comparisonData();
+test("compareCranes selects requested cranes from public MCP inventory", async () => {
+  const inventory = {
+    updated_at: "2026-08-31T12:00:00Z",
+    count: 3,
+    data: [
+      {
+        id: "crane-extra",
+        price_eur: 99000,
+        url: "https://gkmex.com/en/crane/crane-extra",
+      },
+      {
+        id: "crane-1",
+        price_eur: null,
+        url: "https://gkmex.com/en/crane/crane-1",
+      },
+      {
+        id: "crane-2",
+        price_eur: 175000,
+        url: "https://gkmex.com/en/crane/crane-2",
+      },
+    ],
+  };
+  const expected = {
+    updated_at: inventory.updated_at,
+    count: 2,
+    data: [inventory.data[2], inventory.data[1]],
+  };
 
   await withServer(async (request, response) => {
     assert.equal(request.method, "POST");
@@ -128,33 +153,62 @@ test("compareCranes delegates to MCP and preserves the input order", async () =>
       id: 1,
       method: "tools/call",
       params: {
-        name: "compare_cranes",
-        arguments: { ids: ["crane-1", "crane-2"] },
+        name: "list_cranes",
+        arguments: {},
       },
     });
-    sendJson(response, 200, mcpResult(expected));
+    sendJson(response, 200, mcpResult(inventory));
   }, async (baseUrl) => {
     const client = new GkmexClient({ baseUrl });
-    const result = await client.compareCranes(["crane-1", "crane-2"]);
+    const result = await client.compareCranes(["crane-2", "crane-1"]);
 
     assert.deepEqual(result, expected);
-    assert.equal(result.data[0].price_eur, null);
+    assert.equal(result.data[1].price_eur, null);
+    assert.equal(result.data[1].url, "https://gkmex.com/en/crane/crane-1");
   });
 });
 
 test("compareCranes preserves a configured base URL path", async () => {
   await withServer(async (request, response) => {
     assert.equal(request.url, "/proxy/v1/mcp");
-    assert.deepEqual((await readJson(request)).params.arguments.ids, [
-      "crane-2",
-      "crane-1",
-    ]);
-    sendJson(response, 200, mcpResult(comparisonData([])));
+    assert.deepEqual(await readJson(request), {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "list_cranes", arguments: {} },
+    });
+    sendJson(
+      response,
+      200,
+      mcpResult(comparisonData(["crane-1", "crane-2"])),
+    );
   }, async (baseUrl) => {
     const client = new GkmexClient({ baseUrl: baseUrl + "/proxy/v1/" });
     const result = await client.compareCranes(["crane-2", "crane-1"]);
 
-    assert.deepEqual(result, comparisonData([]));
+    assert.deepEqual(result, comparisonData(["crane-2", "crane-1"]));
+  });
+});
+
+test("compareCranes rejects the first requested ID absent from inventory", async () => {
+  await withServer(async (request, response) => {
+    await readJson(request);
+    sendJson(
+      response,
+      200,
+      mcpResult(comparisonData(["crane-1", "crane-3"])),
+    );
+  }, async (baseUrl) => {
+    const client = new GkmexClient({ baseUrl });
+
+    await assert.rejects(
+      client.compareCranes(["crane-1", "missing-first", "missing-second"]),
+      (error) => {
+        assert.ok(error instanceof GkmexError);
+        assert.equal(error.message, "Crane not found: missing-first");
+        return true;
+      },
+    );
   });
 });
 

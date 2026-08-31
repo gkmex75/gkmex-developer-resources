@@ -161,14 +161,32 @@ test("get prints the public crane JSON returned by the SDK", async () => {
   });
 });
 
-test("compare delegates the exact request to MCP and prints structured JSON", async () => {
-  const expected = {
+test("compare selects requested cranes from MCP inventory and prints JSON", async () => {
+  const inventory = {
     updated_at: "2026-08-31",
-    count: 2,
+    count: 3,
     data: [
-      { id: "crane-2", price_eur: null },
-      { id: "crane-1", price_eur: 175000 },
+      {
+        id: "crane-extra",
+        price_eur: 99000,
+        url: "https://gkmex.com/en/crane/crane-extra",
+      },
+      {
+        id: "crane-1",
+        price_eur: 175000,
+        url: "https://gkmex.com/en/crane/crane-1",
+      },
+      {
+        id: "crane-2",
+        price_eur: null,
+        url: "https://gkmex.com/en/crane/crane-2",
+      },
     ],
+  };
+  const expected = {
+    updated_at: inventory.updated_at,
+    count: 2,
+    data: [inventory.data[2], inventory.data[1]],
   };
 
   await withServer(async (request, response) => {
@@ -184,14 +202,14 @@ test("compare delegates the exact request to MCP and prints structured JSON", as
       id: 1,
       method: "tools/call",
       params: {
-        name: "compare_cranes",
-        arguments: { ids: ["crane-2", "crane-1"] },
+        name: "list_cranes",
+        arguments: {},
       },
     });
     sendJson(response, 200, {
       jsonrpc: "2.0",
       id: 1,
-      result: { structuredContent: expected },
+      result: { structuredContent: inventory },
     });
   }, async (baseUrl) => {
     assertSuccess(

@@ -41,7 +41,7 @@ Available methods:
 - `client.getCrane(publicId)`
 - `client.compareCranes([firstPublicId, secondPublicId])`
 
-`compareCranes` accepts two to five unique public IDs and delegates to Gkmex's read-only MCP comparison tool.
+`compareCranes` accepts two to five unique public IDs, reads Gkmex's read-only MCP `list_cranes` inventory, and returns only the selected cranes in the requested order. This is local selection and composition; the package does not invent comparison rules or change crane fields.
 
 ## CLI
 

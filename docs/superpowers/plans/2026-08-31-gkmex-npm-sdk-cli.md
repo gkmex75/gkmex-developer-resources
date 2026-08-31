@@ -1,5 +1,7 @@
 # Gkmex npm SDK and CLI Implementation Plan
 
+> **Production-contract correction — 2026-08-31:** Local and production MCP discovery proved that the public tools are `list_cranes` and `get_crane`; no `compare_cranes` tool exists. A read-only production `tools/call` to `list_cranes` with `{}` returned HTTP 200 and all 29 published records, including sampled public IDs and URLs. All `compare_cranes` references in the historical task transcript below are superseded and are not the supported contract. The implemented `compareCranes` calls `list_cranes` with empty arguments, validates its structured inventory, and locally selects only the requested cranes in caller order.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and publish a zero-dependency Node.js SDK and CLI named gkmex for the public, zero-auth, read-only Gkmex crane inventory.
