@@ -117,10 +117,12 @@ def _decode_sse(payload: bytes):
 
 
 def _validated_mcp_result(envelope, *, request_id: int):
+    response_id = envelope.get("id") if isinstance(envelope, dict) else None
     if (
         not isinstance(envelope, dict)
         or envelope.get("jsonrpc") != "2.0"
-        or envelope.get("id") != request_id
+        or isinstance(response_id, bool)
+        or response_id != request_id
         or (("result" in envelope) == ("error" in envelope))
     ):
         raise GkmexError("Gkmex returned an unexpected JSON-RPC envelope")

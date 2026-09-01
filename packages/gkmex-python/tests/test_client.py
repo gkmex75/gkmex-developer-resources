@@ -362,6 +362,14 @@ class ClientTests(unittest.TestCase):
             [],
             {"jsonrpc": "1.0", "id": 1, "result": {}},
             {"jsonrpc": "2.0", "id": 2, "result": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": True,
+                "result": {
+                    "isError": False,
+                    "structuredContent": {"count": 2, "data": [{}, {}]},
+                },
+            },
             {"jsonrpc": "2.0", "id": 1},
             {
                 "jsonrpc": "2.0",
