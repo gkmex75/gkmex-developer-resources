@@ -21,6 +21,12 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(project["version"], "1.0.0")
         self.assertEqual(project["requires-python"], ">=3.10")
         self.assertEqual(project["license"], "MIT")
+        self.assertFalse(
+            any(
+                classifier.startswith("License ::")
+                for classifier in project["classifiers"]
+            )
+        )
         self.assertEqual(project["dependencies"], [])
         self.assertEqual(project["scripts"], {"gkmex": "gkmex.cli:main"})
         self.assertEqual(
