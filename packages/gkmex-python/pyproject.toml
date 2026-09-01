@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gkmex"
+version = "1.0.0"
+description = "Official zero-auth Python SDK and CLI for the public Gkmex used-crane inventory"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Gkmex Cranes", email = "info@gkmex.com" }]
+keywords = ["gkmex", "cranes", "sdk", "cli", "mcp", "inventory"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://gkmex.com/developers"
+Documentation = "https://gkmex.com/developers"
+Source = "https://github.com/gkmex75/gkmex-developer-resources/tree/main/packages/gkmex-python"
+Issues = "https://github.com/gkmex75/gkmex-developer-resources/issues"
+
+[project.scripts]
+gkmex = "gkmex.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
