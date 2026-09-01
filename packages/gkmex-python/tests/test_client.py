@@ -76,6 +76,7 @@ class ClientTests(unittest.TestCase):
             request.full_url,
             "https://example.test/prefix/api/v1/cranes",
         )
+        self.assertEqual(request.get_header("User-agent"), "gkmex-python/1.0.0")
         self.assertEqual(open_url.call_args.kwargs["timeout"], 7)
         self.assertEqual(result, {"count": 0, "data": []})
 

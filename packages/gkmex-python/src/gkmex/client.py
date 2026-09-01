@@ -7,6 +7,8 @@ import urllib.request
 from typing import Any
 
 DEFAULT_BASE_URL = "https://gkmex.com"
+__version__ = "1.0.0"
+USER_AGENT = f"gkmex-python/{__version__}"
 
 
 class GkmexError(Exception):
@@ -282,7 +284,7 @@ class GkmexClient:
     ):
         url = urllib.parse.urljoin(self.base_url, target)
         data = None if body is None else json.dumps(body).encode("utf-8")
-        headers = {"Accept": accept}
+        headers = {"Accept": accept, "User-Agent": USER_AGENT}
         if data is not None:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(
