@@ -162,9 +162,14 @@ class PublishWorkflowTests(unittest.TestCase):
         return match.group("body")
 
     def test_only_published_python_releases_enter_the_build(self):
-        self.assertIn(
-            "on:\n  release:\n    types: [published]\n",
+        triggers = re.findall(
+            r"(?ms)^on:\n"
+            r"(?P<body>.*?)(?=^[A-Za-z0-9_-]+:(?:[^\n]*\n|\Z)|\Z)",
             self.workflow,
+        )
+        self.assertEqual(
+            triggers,
+            ["  release:\n    types: [published]\n\n"],
         )
         for forbidden in (
             "workflow_dispatch:",
@@ -185,11 +190,23 @@ class PublishWorkflowTests(unittest.TestCase):
             "ref: ${{ github.event.release.tag_name }}",
             build,
         )
+        self.assertIn("persist-credentials: false", build)
+        self.assertIn(
+            "RELEASE_TAG: ${{ github.event.release.tag_name }}",
+            build,
+        )
+        self.assertIn(
+            'pathlib.Path("packages/gkmex-python/pyproject.toml").read_text(',
+            build,
+        )
+        self.assertIn('version = metadata["project"]["version"]', build)
         self.assertIn(
             'expected = f"gkmex-python-v{version}"',
             build,
         )
+        self.assertIn('actual = os.environ["RELEASE_TAG"]', build)
         self.assertIn("if actual != expected:", build)
+        self.assertIn("raise SystemExit(", build)
 
     def test_oidc_is_confined_to_the_approved_publish_job(self):
         build = self.job("build")
@@ -256,9 +273,22 @@ class PublishWorkflowTests(unittest.TestCase):
             "python -m build --outdir dist packages/gkmex-python",
             build,
         )
+        self.assertIn('f"gkmex-{version}-py3-none-any.whl"', build)
+        self.assertIn('f"gkmex-{version}.tar.gz"', build)
+        self.assertIn(
+            'actual = {path.name for path in pathlib.Path("dist").iterdir()}',
+            build,
+        )
+        self.assertRegex(
+            build,
+            r"if actual != expected:\s+raise SystemExit\(\s+"
+            r'f"unexpected distributions: \{sorted\(actual\)!r\}; "\s+'
+            r'f"expected \{sorted\(expected\)!r\}"\s+\)',
+        )
         self.assertIn("python -m twine check dist/*", build)
         self.assertIn("name: gkmex-python-distributions", build)
         self.assertIn("path: dist/", build)
+        self.assertIn("if-no-files-found: error", build)
         self.assertIn("retention-days: 1", build)
         self.assertIn("name: gkmex-python-distributions", publish)
         self.assertIn("path: dist/", publish)
