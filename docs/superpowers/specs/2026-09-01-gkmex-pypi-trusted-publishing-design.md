@@ -27,8 +27,10 @@ This change must not republish or modify `gkmex==1.0.0`.
 
 ### Release trigger
 
-The workflow runs only for GitHub's `release.published` event. It has no
-`workflow_dispatch`, `push`, pull-request, or reusable-workflow trigger.
+The workflow is invoked only for GitHub's `release.published` event. Its build
+job proceeds only when the release tag begins with `gkmex-python-v`, so npm or
+other future package releases in the same repository remain unaffected. It has
+no `workflow_dispatch`, `push`, pull-request, or reusable-workflow trigger.
 
 Python release tags use this contract:
 
@@ -85,7 +87,7 @@ download and PyPI publish.
 ## Workflow Data Flow
 
 ```text
-GitHub Release published
+GitHub Release published with a gkmex-python-v tag
   -> checkout exact gkmex-python-vX.Y.Z tag
   -> validate tag suffix == pyproject version
   -> run Python tests
@@ -102,8 +104,10 @@ and PyPI project therefore remain bound to one release event.
 
 ## Failure Handling
 
-- Wrong tag prefix or version mismatch: fail in `build`; no artifact and no
-  OIDC credential.
+- Non-Python release tag: skip both jobs; other package releases remain
+  unaffected.
+- Python tag/version mismatch: fail in `build`; no artifact and no OIDC
+  credential.
 - Python test, build, or Twine failure: fail in `build`; `publish` never starts.
 - Missing environment approval: deployment remains waiting and nothing reaches
   PyPI.
@@ -116,9 +120,9 @@ and PyPI project therefore remain bound to one release event.
 
 Repository acceptance coverage will assert the workflow's security contract,
 including its sole trigger, exact tag checkout, version gate, separated jobs,
-artifact handoff, protected environment, job-scoped OIDC permission, pinned
-actions, and absence of secrets or password inputs. The existing 35 Python
-tests and package artifact checks remain release gates.
+Python-tag job filter, artifact handoff, protected environment, job-scoped
+OIDC permission, pinned actions, and absence of secrets or password inputs.
+The existing 35 Python tests and package artifact checks remain release gates.
 
 Before merging:
 
