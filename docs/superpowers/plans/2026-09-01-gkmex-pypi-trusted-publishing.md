@@ -204,9 +204,14 @@ class PublishWorkflowTests(unittest.TestCase):
             'expected = f"gkmex-python-v{version}"',
             build,
         )
-        self.assertIn('actual = os.environ["RELEASE_TAG"]', build)
-        self.assertIn("if actual != expected:", build)
-        self.assertIn("raise SystemExit(", build)
+        self.assertRegex(
+            build,
+            r'actual = os\.environ\["RELEASE_TAG"\]\s+'
+            r"if actual != expected:\s+"
+            r"raise SystemExit\(\s+"
+            r'f"release tag \{actual!r\} must equal \{expected!r\}"\s+'
+            r"\)",
+        )
 
     def test_oidc_is_confined_to_the_approved_publish_job(self):
         build = self.job("build")
@@ -273,8 +278,13 @@ class PublishWorkflowTests(unittest.TestCase):
             "python -m build --outdir dist packages/gkmex-python",
             build,
         )
-        self.assertIn('f"gkmex-{version}-py3-none-any.whl"', build)
-        self.assertIn('f"gkmex-{version}.tar.gz"', build)
+        self.assertRegex(
+            build,
+            r"expected = \{\s+"
+            r'f"gkmex-\{version\}-py3-none-any\.whl",\s+'
+            r'f"gkmex-\{version\}\.tar\.gz",\s+'
+            r"\}",
+        )
         self.assertIn(
             'actual = {path.name for path in pathlib.Path("dist").iterdir()}',
             build,
