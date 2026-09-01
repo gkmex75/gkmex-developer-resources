@@ -80,6 +80,99 @@ def _decode_error_body(payload: bytes, media_type: str):
         return None
 
 
+def _decode_sse(payload: bytes):
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GkmexError("Gkmex returned malformed SSE") from exc
+
+    documents = []
+    data_lines = []
+    for line in text.splitlines():
+        if line == "":
+            if data_lines:
+                event_data = "\n".join(data_lines)
+                try:
+                    documents.append(json.loads(event_data))
+                except json.JSONDecodeError as exc:
+                    raise GkmexError("Gkmex returned malformed SSE") from exc
+                data_lines = []
+            continue
+        if line.startswith(":"):
+            continue
+        field, separator, value = line.partition(":")
+        if separator and field == "data":
+            data_lines.append(value[1:] if value.startswith(" ") else value)
+
+    if data_lines:
+        try:
+            documents.append(json.loads("\n".join(data_lines)))
+        except json.JSONDecodeError as exc:
+            raise GkmexError("Gkmex returned malformed SSE") from exc
+    if not documents:
+        raise GkmexError("Gkmex returned malformed SSE")
+    return documents[-1]
+
+
+def _validated_mcp_result(envelope, *, request_id: int):
+    if (
+        not isinstance(envelope, dict)
+        or envelope.get("jsonrpc") != "2.0"
+        or envelope.get("id") != request_id
+        or (("result" in envelope) == ("error" in envelope))
+    ):
+        raise GkmexError("Gkmex returned an unexpected JSON-RPC envelope")
+
+    if "error" in envelope:
+        error = envelope["error"]
+        if not isinstance(error, dict):
+            raise GkmexError("Gkmex returned an unexpected JSON-RPC envelope")
+        code = error.get("code")
+        message = error.get("message")
+        if not isinstance(code, int) or isinstance(code, bool):
+            raise GkmexError("Gkmex returned an unexpected JSON-RPC envelope")
+        if not isinstance(message, str) or not message:
+            message = "Gkmex MCP request failed"
+        raise GkmexError(
+            message,
+            code=code,
+            details=error.get("data"),
+        )
+
+    result = envelope["result"]
+    if not isinstance(result, dict):
+        raise GkmexError("Gkmex returned an unexpected MCP result")
+    is_error = result.get("isError", False)
+    if not isinstance(is_error, bool):
+        raise GkmexError("Gkmex returned an unexpected MCP result")
+    if is_error:
+        message = "Gkmex MCP tool failed"
+        content = result.get("content")
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict) or item.get("type") != "text":
+                    continue
+                candidate = item.get("text")
+                if isinstance(candidate, str) and candidate:
+                    message = candidate
+                    break
+        raise GkmexError(message, details=result)
+
+    structured = result.get("structuredContent")
+    if not isinstance(structured, dict):
+        raise GkmexError("Gkmex returned an unexpected MCP result")
+    count = structured.get("count")
+    data = structured.get("data")
+    if (
+        not isinstance(count, int)
+        or isinstance(count, bool)
+        or not isinstance(data, list)
+        or count != len(data)
+    ):
+        raise GkmexError("Gkmex returned an unexpected MCP result")
+    return structured
+
+
 class GkmexClient:
     def __init__(self, base_url: str = DEFAULT_BASE_URL, timeout: float = 20):
         self.base_url = base_url.rstrip("/") + "/"
@@ -134,6 +227,34 @@ class GkmexClient:
             "api/v1/cranes/" + urllib.parse.quote(id, safe=""),
         )
 
+    def compare_cranes(self, ids):
+        message = "ids must contain two to five unique public crane IDs"
+        if not isinstance(ids, (list, tuple)):
+            raise GkmexError(message)
+        try:
+            canonical = [_canonical_id(value, field="ids") for value in ids]
+        except GkmexError as exc:
+            raise GkmexError(message) from exc
+        if not 2 <= len(canonical) <= 5 or len(set(canonical)) != len(canonical):
+            raise GkmexError(message)
+
+        envelope = self._request_document(
+            "POST",
+            "mcp",
+            body={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "compare_cranes",
+                    "arguments": {"ids": canonical},
+                },
+            },
+            accept="application/json, text/event-stream",
+            allow_sse=True,
+        )
+        return _validated_mcp_result(envelope, request_id=1)
+
     def _request_json(
         self,
         method: str,
@@ -141,6 +262,23 @@ class GkmexClient:
         *,
         body=None,
         accept="application/json",
+    ):
+        return self._request_document(
+            method,
+            target,
+            body=body,
+            accept=accept,
+            allow_sse=False,
+        )
+
+    def _request_document(
+        self,
+        method: str,
+        target: str,
+        *,
+        body=None,
+        accept="application/json",
+        allow_sse: bool,
     ):
         url = urllib.parse.urljoin(self.base_url, target)
         data = None if body is None else json.dumps(body).encode("utf-8")
@@ -177,6 +315,8 @@ class GkmexClient:
             ) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise GkmexError("Unable to reach Gkmex") from exc
-        if not _is_json_media_type(media_type):
-            raise GkmexError("Gkmex returned an unsupported media type")
-        return _decode_json(payload)
+        if _is_json_media_type(media_type):
+            return _decode_json(payload)
+        if allow_sse and media_type == "text/event-stream":
+            return _decode_sse(payload)
+        raise GkmexError("Gkmex returned an unsupported media type")

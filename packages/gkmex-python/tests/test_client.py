@@ -1,10 +1,11 @@
+import json
 import unittest
 import urllib.error
 import urllib.parse
 from unittest.mock import MagicMock, patch
 
 from gkmex import GkmexClient, GkmexError
-from tests.helpers import send_bytes, send_json, serve
+from tests.helpers import read_body, send_bytes, send_json, send_sse, serve
 
 
 class ClientTests(unittest.TestCase):
@@ -206,6 +207,269 @@ class ClientTests(unittest.TestCase):
                         GkmexClient().list_cranes()
 
                 self.assertIs(raised.exception.__cause__, failure)
+
+    def test_compare_cranes_posts_the_authoritative_mcp_request(self):
+        comparison = {
+            "count": 2,
+            "data": [{"id": "crane-1"}, {"id": "crane-2"}],
+        }
+
+        def route(handler, requests):
+            requests.append(
+                {
+                    "method": handler.command,
+                    "path": handler.path,
+                    "headers": handler.headers,
+                    "body": json.loads(read_body(handler)),
+                }
+            )
+            send_json(
+                handler,
+                200,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {
+                        "content": [{"type": "text", "text": "comparison"}],
+                        "structuredContent": comparison,
+                        "isError": False,
+                    },
+                },
+            )
+
+        with serve(route) as (base_url, requests):
+            result = GkmexClient(base_url).compare_cranes(
+                ["crane-1", "crane-2"]
+            )
+
+        request = requests[0]
+        self.assertEqual(request["method"], "POST")
+        self.assertEqual(request["path"], "/mcp")
+        self.assertEqual(request["headers"]["Content-Type"], "application/json")
+        self.assertEqual(
+            request["headers"]["Accept"],
+            "application/json, text/event-stream",
+        )
+        self.assertEqual(
+            request["body"],
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "compare_cranes",
+                    "arguments": {"ids": ["crane-1", "crane-2"]},
+                },
+            },
+        )
+        self.assertEqual(result, comparison)
+
+    def test_compare_cranes_preserves_a_configured_base_url_path(self):
+        def route(handler, requests):
+            requests.append(handler.path)
+            read_body(handler)
+            send_json(
+                handler,
+                200,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {
+                        "structuredContent": {"count": 2, "data": [{}, {}]},
+                        "isError": False,
+                    },
+                },
+            )
+
+        with serve(route) as (base_url, requests):
+            GkmexClient(base_url + "/prefix").compare_cranes(["one", "two"])
+
+        self.assertEqual(requests, ["/prefix/mcp"])
+
+    def test_compare_cranes_rejects_invalid_ids_without_network_access(self):
+        invalid = (
+            None,
+            "one",
+            [],
+            ["one"],
+            ["one", "one"],
+            ["1", "2", "3", "4", "5", "6"],
+            ["one", ""],
+            ["one", " two"],
+            ["one", "two "],
+            ["one", "."],
+            ["one", ".."],
+            ["one", 2],
+        )
+
+        with patch("gkmex.client.urllib.request.urlopen") as open_url:
+            for ids in invalid:
+                with self.subTest(ids=ids):
+                    with self.assertRaises(GkmexError):
+                        GkmexClient().compare_cranes(ids)
+
+        open_url.assert_not_called()
+
+    def test_compare_cranes_decodes_an_sse_json_rpc_result(self):
+        comparison = {
+            "count": 2,
+            "data": [{"id": "crane-1"}, {"id": "crane-2"}],
+        }
+        envelope = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "structuredContent": comparison,
+                "isError": False,
+            },
+        }
+
+        def route(handler, requests):
+            read_body(handler)
+            send_sse(
+                handler,
+                ": keepalive\nevent: message\ndata: "
+                + json.dumps(envelope)
+                + "\n\n",
+            )
+
+        with serve(route) as (base_url, _):
+            result = GkmexClient(base_url).compare_cranes(
+                ["crane-1", "crane-2"]
+            )
+
+        self.assertEqual(result, comparison)
+
+    def test_compare_cranes_rejects_malformed_sse(self):
+        payloads = (": keepalive\n\n", "data: {\n\n")
+
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                def route(handler, requests):
+                    read_body(handler)
+                    send_sse(handler, payload)
+
+                with serve(route) as (base_url, _):
+                    with self.assertRaisesRegex(
+                        GkmexError,
+                        "Gkmex returned malformed SSE",
+                    ):
+                        GkmexClient(base_url).compare_cranes(["one", "two"])
+
+    def test_compare_cranes_rejects_malformed_json_rpc_envelopes(self):
+        envelopes = (
+            [],
+            {"jsonrpc": "1.0", "id": 1, "result": {}},
+            {"jsonrpc": "2.0", "id": 2, "result": {}},
+            {"jsonrpc": "2.0", "id": 1},
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {},
+                "error": {"code": -1, "message": "bad"},
+            },
+        )
+
+        for envelope in envelopes:
+            with self.subTest(envelope=envelope):
+                def route(handler, requests):
+                    read_body(handler)
+                    send_json(handler, 200, envelope)
+
+                with serve(route) as (base_url, _):
+                    with self.assertRaisesRegex(
+                        GkmexError,
+                        "unexpected JSON-RPC envelope",
+                    ):
+                        GkmexClient(base_url).compare_cranes(["one", "two"])
+
+    def test_compare_cranes_maps_json_rpc_errors(self):
+        def route(handler, requests):
+            read_body(handler)
+            send_json(
+                handler,
+                200,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "error": {
+                        "code": -32602,
+                        "message": "Crane not found",
+                        "data": {"ids": ["missing"]},
+                    },
+                },
+            )
+
+        with serve(route) as (base_url, _):
+            with self.assertRaises(GkmexError) as raised:
+                GkmexClient(base_url).compare_cranes(["missing", "two"])
+
+        self.assertEqual(str(raised.exception), "Crane not found")
+        self.assertEqual(raised.exception.code, -32602)
+        self.assertIsNone(raised.exception.status)
+        self.assertEqual(raised.exception.details, {"ids": ["missing"]})
+
+    def test_compare_cranes_maps_mcp_tool_errors(self):
+        def route(handler, requests):
+            read_body(handler)
+            send_json(
+                handler,
+                200,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {
+                        "isError": True,
+                        "content": [
+                            {"type": "text", "text": "Cannot compare cranes"}
+                        ],
+                    },
+                },
+            )
+
+        with serve(route) as (base_url, _):
+            with self.assertRaisesRegex(
+                GkmexError,
+                "Cannot compare cranes",
+            ) as raised:
+                GkmexClient(base_url).compare_cranes(["one", "two"])
+
+        self.assertTrue(raised.exception.details["isError"])
+
+    def test_compare_cranes_validates_structured_content(self):
+        invalid_content = (
+            None,
+            [],
+            {},
+            {"count": "2", "data": [{}, {}]},
+            {"count": True, "data": [{}]},
+            {"count": 2, "data": {}},
+            {"count": 1, "data": [{}, {}]},
+        )
+
+        for structured_content in invalid_content:
+            with self.subTest(structured_content=structured_content):
+                def route(handler, requests):
+                    read_body(handler)
+                    send_json(
+                        handler,
+                        200,
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "result": {
+                                "isError": False,
+                                "structuredContent": structured_content,
+                            },
+                        },
+                    )
+
+                with serve(route) as (base_url, _):
+                    with self.assertRaisesRegex(
+                        GkmexError,
+                        "unexpected MCP result",
+                    ):
+                        GkmexClient(base_url).compare_cranes(["one", "two"])
 
 
 if __name__ == "__main__":
