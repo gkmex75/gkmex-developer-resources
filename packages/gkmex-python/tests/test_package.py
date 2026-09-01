@@ -1,4 +1,3 @@
-import tomllib
 import unittest
 from pathlib import Path
 
@@ -10,37 +9,45 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = PACKAGE_ROOT.parents[1]
 
 
+def toml_section(document, name):
+    marker = f"[{name}]\n"
+    start = document.index(marker) + len(marker)
+    remainder = document[start:]
+    end = remainder.find("\n[")
+    return remainder if end == -1 else remainder[:end]
+
+
 class PackageTests(unittest.TestCase):
     def test_metadata_is_the_exact_public_package_contract(self):
-        metadata = tomllib.loads(
-            (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        document = (PACKAGE_ROOT / "pyproject.toml").read_text(
+            encoding="utf-8"
         )
-        project = metadata["project"]
+        project = toml_section(document, "project")
+        scripts = toml_section(document, "project.scripts")
+        urls = toml_section(document, "project.urls")
+        setuptools = toml_section(document, "tool.setuptools")
+        packages = toml_section(document, "tool.setuptools.packages.find")
 
-        self.assertEqual(project["name"], "gkmex")
-        self.assertEqual(project["version"], "1.0.0")
-        self.assertEqual(project["requires-python"], ">=3.10")
-        self.assertEqual(project["license"], "MIT")
-        self.assertFalse(
-            any(
-                classifier.startswith("License ::")
-                for classifier in project["classifiers"]
-            )
+        for field in (
+            'name = "gkmex"',
+            'version = "1.0.0"',
+            'requires-python = ">=3.10"',
+            'license = "MIT"',
+            "dependencies = []",
+        ):
+            self.assertIn(field, project)
+        self.assertNotIn('"License ::', project)
+        self.assertEqual(scripts.strip(), 'gkmex = "gkmex.cli:main"')
+        self.assertIn(
+            'Source = "https://github.com/gkmex75/gkmex-developer-resources/tree/main/packages/gkmex-python"',
+            urls,
         )
-        self.assertEqual(project["dependencies"], [])
-        self.assertEqual(project["scripts"], {"gkmex": "gkmex.cli:main"})
-        self.assertEqual(
-            metadata["tool"]["setuptools"],
-            {"package-dir": {"": "src"}, "packages": {"find": {"where": ["src"]}}},
+        self.assertIn(
+            'Documentation = "https://gkmex.com/developers"',
+            urls,
         )
-        self.assertEqual(
-            project["urls"]["Source"],
-            "https://github.com/gkmex75/gkmex-developer-resources/tree/main/packages/gkmex-python",
-        )
-        self.assertEqual(
-            project["urls"]["Documentation"],
-            "https://gkmex.com/developers",
-        )
+        self.assertEqual(setuptools.strip(), 'package-dir = { "" = "src" }')
+        self.assertEqual(packages.strip(), 'where = ["src"]')
 
     def test_public_import_surface_and_version_are_stable(self):
         self.assertEqual(__version__, "1.0.0")
