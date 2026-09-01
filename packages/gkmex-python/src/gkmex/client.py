@@ -302,7 +302,13 @@ class GkmexClient:
                 payload = response.read()
                 media_type = _media_type(response.headers)
         except urllib.error.HTTPError as exc:
-            error_payload = exc.read()
+            try:
+                error_payload = exc.read()
+            except (TimeoutError, OSError, http.client.HTTPException) as read_exc:
+                raise GkmexError(
+                    f"Gkmex request failed with HTTP {exc.code}",
+                    status=exc.code,
+                ) from read_exc
             details = _decode_error_body(
                 error_payload,
                 _media_type(exc.headers),

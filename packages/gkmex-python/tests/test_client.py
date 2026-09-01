@@ -163,6 +163,32 @@ class ClientTests(unittest.TestCase):
         self.assertIsNone(raised.exception.details)
         self.assertNotIn("internal detail", str(raised.exception))
 
+    def test_incomplete_http_error_body_preserves_status(self):
+        failure = http.client.IncompleteRead(b'{"error":')
+        body = MagicMock()
+        body.read.side_effect = failure
+        http_error = urllib.error.HTTPError(
+            "https://gkmex.com/api/v1/cranes",
+            502,
+            "Bad Gateway",
+            {"Content-Type": "application/json"},
+            body,
+        )
+
+        with patch(
+            "gkmex.client.urllib.request.urlopen",
+            side_effect=http_error,
+        ):
+            with self.assertRaisesRegex(
+                GkmexError,
+                "Gkmex request failed with HTTP 502",
+            ) as raised:
+                GkmexClient().list_cranes()
+
+        self.assertEqual(raised.exception.status, 502)
+        self.assertIsNone(raised.exception.details)
+        self.assertIs(raised.exception.__cause__, failure)
+
     def test_success_with_unsupported_media_type_is_rejected(self):
         def route(handler, requests):
             send_bytes(handler, 200, "text/plain", b'{}')
