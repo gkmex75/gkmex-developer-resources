@@ -50,9 +50,23 @@ class AgentPluginContractTests(unittest.TestCase):
 
     def test_existing_skill_and_codex_contracts_remain_present(self):
         skill = SKILL.read_text()
-        self.assertRegex(skill, r"\A---\s*\nname:\s*gkmex-inventory\s*\n")
-        self.assertRegex(skill, r"description:\s*.+\n---\s*\n#\s+.+")
-        self.assertTrue((ROOT / ".codex-plugin" / "plugin.json").exists())
+        self.assertRegex(
+            skill,
+            r"\A---\n"
+            r"name: gkmex-inventory\n"
+            r"description: Find and inspect currently published Gkmex used mobile and crawler cranes through the official public read-only API or MCP server\.\n"
+            r"---\n\n"
+            r"# Gkmex inventory\n",
+        )
+        codex_plugin = ROOT / ".codex-plugin" / "plugin.json"
+        self.assertTrue(codex_plugin.exists())
+        codex_manifest = json.loads(codex_plugin.read_text())
+        self.assertEqual(codex_manifest["skills"], "./skills/")
+        self.assertEqual(codex_manifest["mcpServers"], "./.mcp.json")
+        self.assertEqual(
+            set(codex_manifest),
+            {"name", "version", "description", "author", "skills", "mcpServers", "interface"},
+        )
         self.assertTrue((ROOT / ".mcp.json").exists())
         self.assertEqual(
             json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["gkmex-inventory"],
