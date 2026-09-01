@@ -64,6 +64,11 @@ class PackageTests(unittest.TestCase):
             (REPOSITORY_ROOT / "LICENSE").read_bytes(),
         )
 
+    def test_source_distribution_manifest_includes_complete_tests(self):
+        manifest = (PACKAGE_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+
+        self.assertIn("recursive-include tests *.py", manifest.splitlines())
+
     def test_readme_documents_sdk_cli_and_public_data_boundaries(self):
         readme = (PACKAGE_ROOT / "README.md").read_text(encoding="utf-8")
         required = (
