@@ -47,10 +47,7 @@ class PublishWorkflowTests(unittest.TestCase):
             "'gkmex-python-v')",
             build,
         )
-        self.assertIn(
-            "ref: ${{ github.event.release.tag_name }}",
-            build,
-        )
+        self.assertNotRegex(build, r"(?m)^\s+ref:")
         self.assertIn("persist-credentials: false", build)
         self.assertIn(
             "RELEASE_TAG: ${{ github.event.release.tag_name }}",

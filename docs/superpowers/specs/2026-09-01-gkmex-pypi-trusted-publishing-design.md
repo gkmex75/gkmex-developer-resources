@@ -9,8 +9,8 @@
 
 Replace long-lived PyPI credentials in the release path with GitHub Actions
 Trusted Publishing. Future Python releases must be built from the exact GitHub
-Release tag, pass the package gates, require an explicit `gkmex75` environment
-approval, and reach PyPI through a short-lived OIDC credential.
+Release event ref/SHA, pass the package gates, require an explicit `gkmex75`
+environment approval, and reach PyPI through a short-lived OIDC credential.
 
 This change must not republish or modify `gkmex==1.0.0`.
 
@@ -61,10 +61,10 @@ preventing self-review would deadlock every release.
 
 The top-level, non-reusable workflow has two jobs.
 
-1. `build` checks out the exact release tag, validates the tag/version
-   contract, runs all Python package tests, builds wheel and sdist, runs Twine
-   metadata checks, and uploads the two files as a short-lived GitHub Actions
-   artifact. It has no OIDC permission.
+1. `build` checks out the release event's fully qualified ref and event SHA,
+   validates the tag/version contract, runs all Python package tests, builds
+   wheel and sdist, runs Twine metadata checks, and uploads the two files as a
+   short-lived GitHub Actions artifact. It has no OIDC permission.
 2. `publish` depends on `build`, enters the protected `pypi` environment,
    downloads only the built distributions, and invokes the official PyPA
    publishing action. Only this job receives `id-token: write`.
@@ -88,7 +88,7 @@ download and PyPI publish.
 
 ```text
 GitHub Release published with a gkmex-python-v tag
-  -> checkout exact gkmex-python-vX.Y.Z tag
+  -> checkout the release event's fully qualified ref + event SHA
   -> validate tag suffix == pyproject version
   -> run Python tests
   -> build wheel + sdist
@@ -119,9 +119,10 @@ and PyPI project therefore remain bound to one release event.
 ## Verification Strategy
 
 Repository acceptance coverage will assert the workflow's security contract,
-including its sole trigger, exact tag checkout, version gate, separated jobs,
-Python-tag job filter, artifact handoff, protected environment, job-scoped
-OIDC permission, pinned actions, and absence of secrets or password inputs.
+including its sole trigger, release-event ref/SHA checkout, version gate,
+separated jobs, Python-tag job filter, artifact handoff, protected environment,
+job-scoped OIDC permission, pinned actions, and absence of secrets or password
+inputs.
 The existing 35 Python tests and package artifact checks remain release gates.
 
 Before merging:

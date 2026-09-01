@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Configure tokenless, approval-gated PyPI publishing for future `gkmex` Python releases from exact GitHub Release tags without republishing `1.0.0`.
+**Goal:** Configure tokenless, approval-gated PyPI publishing for future `gkmex` Python releases from the exact GitHub Release event ref/SHA without republishing `1.0.0`.
 
 **Architecture:** Add one top-level GitHub Actions workflow with an unprivileged build job and a separate OIDC-enabled publish job. Protect the publish job with a GitHub `pypi` environment requiring `gkmex75` approval, then register that exact workflow/environment identity as a Trusted Publisher on the existing PyPI project.
 
@@ -187,10 +187,7 @@ class PublishWorkflowTests(unittest.TestCase):
             "'gkmex-python-v')",
             build,
         )
-        self.assertIn(
-            "ref: ${{ github.event.release.tag_name }}",
-            build,
-        )
+        self.assertNotRegex(build, r"(?m)^\s+ref:")
         self.assertIn("persist-credentials: false", build)
         self.assertIn(
             "RELEASE_TAG: ${{ github.event.release.tag_name }}",
@@ -400,7 +397,6 @@ jobs:
       - name: Check out the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -562,7 +558,7 @@ Run:
 
 ```bash
 if rg -l --hidden \
-  'pypi-AgEIcHlwaS5vcmcC[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{20,}' \
+  'pypi-[A-Za-z0-9_-]{85,}|npm_[A-Za-z0-9]{20,}' \
   .github tests docs/superpowers/specs/2026-09-01-gkmex-pypi-trusted-publishing-design.md \
   docs/superpowers/plans/2026-09-01-gkmex-pypi-trusted-publishing.md; then
   exit 1
@@ -608,7 +604,7 @@ Use the `requesting-code-review` skill. Review the exact range
 `origin/main..HEAD` for:
 
 - release event and Python tag isolation;
-- exact release-tag checkout and tag/version binding;
+- release-event ref/SHA checkout and tag/version binding;
 - build/publish job separation;
 - OIDC permission scope;
 - action SHA pins and release-tool pins;
