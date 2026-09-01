@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gkmex-developer-resources",
+  "version": "0.1.0",
+  "description": "Portable public, zero-auth, read-only access to Gkmex used-crane inventory through an Agent Skill and MCP server.",
+  "author": {
+    "name": "Gkmex Cranes",
+    "url": "https://gkmex.com"
+  },
+  "homepage": "https://gkmex.com/developers",
+  "repository": "https://github.com/gkmex75/gkmex-developer-resources",
+  "license": "MIT",
+  "keywords": [
+    "gkmex",
+    "cranes",
+    "inventory",
+    "mcp",
+    "agent-skills",
+    "npm",
+    "pypi"
+  ]
+}
