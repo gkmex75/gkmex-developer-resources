@@ -562,7 +562,7 @@ Run:
 
 ```bash
 if rg -l --hidden \
-  'pypi-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{20,}' \
+  'pypi-AgEIcHlwaS5vcmcC[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{20,}' \
   .github tests docs/superpowers/specs/2026-09-01-gkmex-pypi-trusted-publishing-design.md \
   docs/superpowers/plans/2026-09-01-gkmex-pypi-trusted-publishing.md; then
   exit 1
