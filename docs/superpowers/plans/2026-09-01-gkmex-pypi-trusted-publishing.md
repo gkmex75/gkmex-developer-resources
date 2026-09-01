@@ -179,6 +179,7 @@ class PublishWorkflowTests(unittest.TestCase):
             "\n  push:",
         ):
             self.assertNotIn(forbidden, self.workflow)
+        self.assertNotIn("continue-on-error:", self.workflow)
 
         build = self.job("build")
         self.assertIn(
@@ -214,11 +215,33 @@ class PublishWorkflowTests(unittest.TestCase):
         )
 
     def test_oidc_is_confined_to_the_approved_publish_job(self):
+        jobs = re.search(
+            r"(?ms)^jobs:\n(?P<body>.*)\Z",
+            self.workflow,
+        )
+        self.assertIsNotNone(jobs, "missing top-level jobs block")
+        job_names = re.findall(
+            r"(?m)^  ([A-Za-z0-9_-]+):\n",
+            jobs.group("body"),
+        )
+        self.assertEqual(job_names, ["build", "publish"])
+
         build = self.job("build")
         publish = self.job("publish")
 
-        self.assertIn("permissions: {}", self.workflow)
-        self.assertIn("permissions:\n      contents: read", build)
+        self.assertEqual(
+            re.findall(r"(?m)^permissions:.*$", self.workflow),
+            ["permissions: {}"],
+        )
+        self.assertIn("permissions: {}\n\njobs:\n", self.workflow)
+        self.assertEqual(
+            re.findall(r"(?m)^    permissions:.*$", build),
+            ["    permissions:"],
+        )
+        self.assertIn(
+            "    permissions:\n      contents: read\n    steps:\n",
+            build,
+        )
         self.assertNotIn("id-token:", build)
         self.assertEqual(self.workflow.count("id-token: write"), 1)
         self.assertIn("needs: build", publish)
@@ -227,7 +250,14 @@ class PublishWorkflowTests(unittest.TestCase):
             "      url: https://pypi.org/p/gkmex",
             publish,
         )
-        self.assertIn("permissions:\n      id-token: write", publish)
+        self.assertEqual(
+            re.findall(r"(?m)^    permissions:.*$", publish),
+            ["    permissions:"],
+        )
+        self.assertIn(
+            "    permissions:\n      id-token: write\n    steps:\n",
+            publish,
+        )
         self.assertNotRegex(publish, r"(?m)^\s+run:")
         for forbidden in (
             "actions/checkout",
@@ -265,6 +295,28 @@ class PublishWorkflowTests(unittest.TestCase):
     def test_verified_distributions_are_the_only_publish_input(self):
         build = self.job("build")
         publish = self.job("publish")
+
+        run_headers = re.findall(r"(?m)^        run:[ \t]*(.*)$", build)
+        self.assertEqual(
+            run_headers,
+            [
+                "python -m pip install --disable-pip-version-check "
+                "build==1.6.0 twine==7.0.0",
+                "|",
+                "python -m unittest discover -s tests",
+                "PYTHONPATH=packages/gkmex-python/src python "
+                "-W error::ResourceWarning -m unittest discover "
+                "-s packages/gkmex-python/tests",
+                "python -m build --outdir dist packages/gkmex-python",
+                "|",
+                "python -m twine check dist/*",
+            ],
+        )
+        heredocs = re.findall(
+            r"(?m)^[ \t]+(python - <<'PY'.*)$",
+            build,
+        )
+        self.assertEqual(heredocs, ["python - <<'PY'", "python - <<'PY'"])
 
         self.assertIn("build==1.6.0 twine==7.0.0", build)
         self.assertIn(
