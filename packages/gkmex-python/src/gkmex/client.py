@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.parse
@@ -121,6 +122,7 @@ def _validated_mcp_result(envelope, *, request_id: int):
     if (
         not isinstance(envelope, dict)
         or envelope.get("jsonrpc") != "2.0"
+        or "method" in envelope
         or isinstance(response_id, bool)
         or response_id != request_id
         or (("result" in envelope) == ("error" in envelope))
@@ -317,7 +319,12 @@ class GkmexClient:
                 status=exc.code,
                 details=details,
             ) from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        ) as exc:
             raise GkmexError("Unable to reach Gkmex") from exc
         if _is_json_media_type(media_type):
             return _decode_json(payload)

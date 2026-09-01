@@ -209,6 +209,29 @@ class CliTests(unittest.TestCase):
         self.assertEqual(returncode, 0, stderr)
         self.assertEqual(stderr, "")
 
+    def test_small_closed_stdout_pipeline_exits_quietly(self):
+        def route(handler, requests):
+            send_json(handler, 200, {"id": "crane-1"})
+
+        with serve(route) as (base_url, _):
+            process = subprocess.Popen(
+                [sys.executable, "-m", "gkmex.cli", "get", "crane-1"],
+                cwd=ROOT,
+                env=cli_environment(base_url),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.assertIsNotNone(process.stdout)
+            self.assertIsNotNone(process.stderr)
+            process.stdout.close()
+            stderr = process.stderr.read()
+            process.stderr.close()
+            returncode = process.wait(timeout=10)
+
+        self.assertEqual(returncode, 0, stderr)
+        self.assertEqual(stderr, "")
+
 
 if __name__ == "__main__":
     unittest.main()

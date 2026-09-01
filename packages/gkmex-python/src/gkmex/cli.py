@@ -94,6 +94,7 @@ def main(argv=None):
 
         json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
+        sys.stdout.flush()
     except GkmexError as exc:
         print(f"gkmex: {exc}", file=sys.stderr)
         return 1

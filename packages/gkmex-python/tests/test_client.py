@@ -1,3 +1,4 @@
+import http.client
 import json
 import unittest
 import urllib.error
@@ -209,6 +210,24 @@ class ClientTests(unittest.TestCase):
 
                 self.assertIs(raised.exception.__cause__, failure)
 
+    def test_incomplete_response_body_is_stable_and_chained(self):
+        failure = http.client.IncompleteRead(b'{"count":')
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.read.side_effect = failure
+
+        with patch(
+            "gkmex.client.urllib.request.urlopen",
+            return_value=response,
+        ):
+            with self.assertRaisesRegex(
+                GkmexError,
+                "Unable to reach Gkmex",
+            ) as raised:
+                GkmexClient().list_cranes()
+
+        self.assertIs(raised.exception.__cause__, failure)
+
     def test_compare_cranes_posts_the_authoritative_mcp_request(self):
         comparison = {
             "count": 2,
@@ -365,6 +384,15 @@ class ClientTests(unittest.TestCase):
             {
                 "jsonrpc": "2.0",
                 "id": True,
+                "result": {
+                    "isError": False,
+                    "structuredContent": {"count": 2, "data": [{}, {}]},
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "server/request",
                 "result": {
                     "isError": False,
                     "structuredContent": {"count": 2, "data": [{}, {}]},
