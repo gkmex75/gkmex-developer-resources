@@ -23,6 +23,7 @@ class PackageTests(unittest.TestCase):
             encoding="utf-8"
         )
         project = toml_section(document, "project")
+        build_system = toml_section(document, "build-system")
         scripts = toml_section(document, "project.scripts")
         urls = toml_section(document, "project.urls")
         setuptools = toml_section(document, "tool.setuptools")
@@ -37,6 +38,11 @@ class PackageTests(unittest.TestCase):
         ):
             self.assertIn(field, project)
         self.assertNotIn('"License ::', project)
+        self.assertEqual(
+            build_system.strip(),
+            'requires = ["setuptools==84.0.0"]\n'
+            'build-backend = "setuptools.build_meta"',
+        )
         self.assertEqual(scripts.strip(), 'gkmex = "gkmex.cli:main"')
         self.assertIn(
             'Source = "https://github.com/gkmex75/gkmex-developer-resources/tree/main/packages/gkmex-python"',

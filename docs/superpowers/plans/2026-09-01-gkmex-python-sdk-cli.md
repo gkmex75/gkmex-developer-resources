@@ -98,7 +98,7 @@ Create `packages/gkmex-python/pyproject.toml`:
 
 ```toml
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -795,7 +795,10 @@ Run:
 cd /Users/gokmentanacar/projects/gkmex-developer-resources
 rg -n "TODO|FIXME|TBD|placeholder|example\.com|API[_ -]?KEY|TOKEN|PASSWORD" packages/gkmex-python
 rg -n "reservation|guaranteed availability|final availability" packages/gkmex-python
-PYTHONPATH=packages/gkmex-python/src python3 -m unittest discover -s packages/gkmex-python/tests -v
+(
+  cd packages/gkmex-python
+  PYTHONPATH=src python3 -m unittest discover -s tests -v
+)
 git diff --check
 git status --short
 ```

@@ -52,6 +52,7 @@ Required reviewer:   gkmex75 (user ID 266572182)
 PyPI project:        gkmex
 Release tag prefix:  gkmex-python-v
 Python:              3.12
+setuptools:          84.0.0
 build:               1.6.0
 twine:               7.0.0
 actionlint:           1.7.12
@@ -145,6 +146,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "publish-python.yml"
+PYPROJECT = ROOT / "packages" / "gkmex-python" / "pyproject.toml"
 
 
 class PublishWorkflowTests(unittest.TestCase):
@@ -301,9 +303,8 @@ class PublishWorkflowTests(unittest.TestCase):
                 "build==1.6.0 twine==7.0.0",
                 "|",
                 "python -m unittest discover -s tests",
-                "PYTHONPATH=packages/gkmex-python/src python "
-                "-W error::ResourceWarning -m unittest discover "
-                "-s packages/gkmex-python/tests",
+                "PYTHONPATH=src python -W error::ResourceWarning "
+                "-m unittest discover -s tests",
                 "python -m build --outdir dist packages/gkmex-python",
                 "|",
                 "python -m twine check dist/*",
@@ -317,9 +318,10 @@ class PublishWorkflowTests(unittest.TestCase):
 
         self.assertIn("build==1.6.0 twine==7.0.0", build)
         self.assertIn(
-            "PYTHONPATH=packages/gkmex-python/src python "
-            "-W error::ResourceWarning -m unittest discover "
-            "-s packages/gkmex-python/tests",
+            "      - name: Run Python package tests\n"
+            "        working-directory: packages/gkmex-python\n"
+            "        run: PYTHONPATH=src python "
+            "-W error::ResourceWarning -m unittest discover -s tests\n",
             build,
         )
         self.assertIn("python -m unittest discover -s tests", build)
@@ -348,6 +350,20 @@ class PublishWorkflowTests(unittest.TestCase):
         self.assertIn("path: dist/", publish)
         self.assertIn("packages-dir: dist/", publish)
         self.assertIn("print-hash: true", publish)
+
+        pyproject = PYPROJECT.read_text(encoding="utf-8")
+        build_system = re.search(
+            r"(?ms)^\[build-system\]\n(?P<body>.*?)(?=^\[|\Z)",
+            pyproject,
+        )
+        self.assertIsNotNone(build_system, "missing build-system section")
+        self.assertEqual(
+            re.findall(
+                r"(?m)^requires = .*$",
+                build_system.group("body"),
+            ),
+            ['requires = ["setuptools==84.0.0"]'],
+        )
 
 
 if __name__ == "__main__":
@@ -436,7 +452,8 @@ jobs:
         run: python -m unittest discover -s tests
 
       - name: Run Python package tests
-        run: PYTHONPATH=packages/gkmex-python/src python -W error::ResourceWarning -m unittest discover -s packages/gkmex-python/tests
+        working-directory: packages/gkmex-python
+        run: PYTHONPATH=src python -W error::ResourceWarning -m unittest discover -s tests
 
       - name: Build wheel and source distribution
         run: python -m build --outdir dist packages/gkmex-python

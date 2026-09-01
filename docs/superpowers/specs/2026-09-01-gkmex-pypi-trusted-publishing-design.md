@@ -1,8 +1,8 @@
 # Gkmex PyPI Trusted Publishing Design
 
-**Date:** 2026-09-01  
-**Status:** Approved  
-**Repository:** `gkmex75/gkmex-developer-resources`  
+**Date:** 2026-09-01
+**Status:** Approved
+**Repository:** `gkmex75/gkmex-developer-resources`
 **PyPI project:** `gkmex`
 
 ## Goal
@@ -78,7 +78,8 @@ download and PyPI publish.
 - Every third-party GitHub Action is pinned to a full commit SHA with its
   release tag recorded in a comment.
 - Python release tooling is installed at explicit versions in the unprivileged
-  build job.
+  build job, and the isolated PEP 517 backend is pinned exactly to
+  `setuptools==84.0.0` in package metadata.
 - `skip-existing` is not enabled. Duplicate or conflicting releases must fail
   visibly.
 - PyPI attestations remain enabled through the official publish action's
