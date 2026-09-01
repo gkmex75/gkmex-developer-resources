@@ -25,12 +25,24 @@ The collection supports `brand`, `type`, `limit`, `cursor` and `offset`. Use a r
 - [llms.txt](https://gkmex.com/llms.txt)
 - [Deprecation policy](https://gkmex.com/developers/deprecation-policy)
 
+## Portable Agent Plugin
+
+This repository root conforms to Agent Plugins 1.0.0 and packages the existing public Gkmex integration surfaces without credentials or write access.
+
+- `plugin.json` — portable plugin identity and metadata
+- `skills/gkmex-inventory/SKILL.md` — inventory search and inspection skill
+- `mcp.json` — portable Streamable HTTP configuration for `https://gkmex.com/mcp`
+
+The `.codex-plugin/plugin.json` and `.mcp.json` files remain available for Codex-compatible clients; they do not replace the portable root files.
+
 ## MCP configuration
 
 This repository includes `.mcp.json` for clients that accept a remote Streamable HTTP server configuration. Connect to `https://gkmex.com/mcp`; no API key or OAuth flow is required.
 
 ## Agent integration files
 
+- `plugin.json` — portable Agent Plugins 1.0.0 manifest
+- `mcp.json` — portable Streamable HTTP MCP configuration
 - `skills/gkmex-inventory/SKILL.md` — portable inventory skill
 - `.claude/CLAUDE.md` — Claude integration guidance
 - `.cursor/rules/gkmex.mdc` — Cursor rule
