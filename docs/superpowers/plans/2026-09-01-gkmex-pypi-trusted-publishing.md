@@ -283,14 +283,9 @@ class PublishWorkflowTests(unittest.TestCase):
             r"expected = \{\s+"
             r'f"gkmex-\{version\}-py3-none-any\.whl",\s+'
             r'f"gkmex-\{version\}\.tar\.gz",\s+'
-            r"\}",
-        )
-        self.assertIn(
-            'actual = {path.name for path in pathlib.Path("dist").iterdir()}',
-            build,
-        )
-        self.assertRegex(
-            build,
+            r"\}\s+"
+            r'actual = \{path\.name for path in pathlib\.Path\("dist"\)'
+            r"\.iterdir\(\)\}\s+"
             r"if actual != expected:\s+raise SystemExit\(\s+"
             r'f"unexpected distributions: \{sorted\(actual\)!r\}; "\s+'
             r'f"expected \{sorted\(expected\)!r\}"\s+\)',
