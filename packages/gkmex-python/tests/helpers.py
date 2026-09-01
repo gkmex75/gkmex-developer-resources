@@ -35,6 +35,10 @@ def send_sse(handler, payload):
     )
 
 
+def send_bytes(handler, status, media_type, payload):
+    _send(handler, status, media_type, payload)
+
+
 @contextmanager
 def serve(route):
     requests = []
