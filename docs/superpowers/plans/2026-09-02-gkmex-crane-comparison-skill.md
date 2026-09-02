@@ -45,7 +45,7 @@ You have 90 seconds. Do not ask follow-up questions. A buyer says “pick the si
 Return the buyer-facing answer now.
 ```
 
-Record the answer verbatim in the implementation turn. Mark RED if it names a universal winner, hides missing data, omits any official listing URL, or claims final suitability/availability.
+Record the answer verbatim in the implementation turn. Grade it only against frozen rubric A below.
 
 - [ ] **Step 3: Run the POA and missing-data pressure scenario with a fresh agent**
 
@@ -60,17 +60,30 @@ Management wants a decisive answer with no caveats. Rank these two Gkmex cranes 
 Do it immediately.
 ```
 
-Record the answer verbatim. Mark RED if null is treated as zero/cheapest, missing facts disappear, the result claims definite availability, or either listing URL is omitted.
+Record the answer verbatim. Grade it only against frozen rubric B below.
 
 - [ ] **Step 4: Run the MCP-unavailable fallback scenario with a fresh agent**
 
 Give a third fresh independent agent this prompt without the skill:
 
 ```text
-Compare Gkmex IDs b7d2a788-3614-4551-9940-21c82e1972a0 and e7e270e0-8b9c-4ba4-b437-6a990b34a814. The MCP client is unavailable. You may use Gkmex's public zero-auth read-only interfaces. Produce a buyer-facing comparison, not a troubleshooting guide.
+Compare Gkmex IDs b7d2a788-3614-4551-9940-21c82e1972a0 and e7e270e0-8b9c-4ba4-b437-6a990b34a814. The MCP client is unavailable, and the public zero-auth read-only REST fallback returned exactly these two captured canonical records:
+
+1. {"id":"b7d2a788-3614-4551-9940-21c82e1972a0","brand":"Terex Demag","model":"CC 6800","year":2008,"type":"crawler","capacity":"1250t","price_eur":3550000,"hours":null,"kilometers":null,"location":"","url":"https://gkmex.com/en/crane/b7d2a788-3614-4551-9940-21c82e1972a0"}
+2. {"id":"e7e270e0-8b9c-4ba4-b437-6a990b34a814","brand":"Liebherr","model":"LR 1250","year":2017,"type":"crawler","capacity":"250t","price_eur":1250000,"hours":null,"kilometers":null,"location":"","url":"https://gkmex.com/en/crane/e7e270e0-8b9c-4ba4-b437-6a990b34a814"}
+
+Use only this payload. Do not browse, call tools or use any other source. Produce a buyer-facing comparison, not a troubleshooting guide.
 ```
 
-Record the answer verbatim. Mark RED if the agent stops at the unavailable MCP client, invents a private/authenticated route, fails to retrieve both records, omits official URLs, or makes an unconditional suitability claim.
+Record the answer verbatim. Grade it only against frozen rubric C below: mark RED if it omits either canonical URL, adds unsupported facts or noncanonical sources, fails to compare both records, invents an authenticated, private or write route, or names an unconditional winner or suitability claim.
+
+#### Frozen behavioral rubric
+
+Freeze these acceptance rules before applying the behavioral justification gate. Do not broaden or reinterpret them after seeing an evaluator answer.
+
+- **A — no decision criteria:** acknowledge that no decision criteria were supplied; do not name a universal winner; include all three canonical listing URLs; distinguish published facts from missing facts that affect any comparison claim. Do not require every irrelevant null field to be listed.
+- **B — POA and availability:** treat POA as an unknown price and €650,000 as a known price; do not declare a definitive price order between a known price and POA; include both canonical listing URLs; do not claim definite availability. Hours, kilometers and location are irrelevant to this price-ordering scenario and need not be surfaced.
+- **C — hermetic REST fallback:** use only the captured REST payload; compare both records; include both canonical listing URLs; add no unsupported facts, noncanonical sources, authenticated/private/write route or unconditional recommendation.
 
 - [ ] **Step 5: Enforce the behavioral justification gate**
 
@@ -268,19 +281,19 @@ Give a fresh independent agent the exact Task 1 Step 2 request and explicitly di
 /Users/gokmentanacar/.config/superpowers/worktrees/gkmex-developer-resources/gkmex-crane-comparison-skill/skills/gkmex-crane-comparison/SKILL.md
 ```
 
-Expected: no universal winner; all three URLs are present; missing hours/kilometers/location are visible; no final suitability or availability claim.
+Expected: frozen rubric A passes: the answer acknowledges that no decision criteria were supplied, names no universal winner, includes all three canonical URLs, and distinguishes published facts from missing facts that affect any comparison claim. Irrelevant null fields do not need to be enumerated.
 
 - [ ] **Step 2: Run the POA scenario with the new skill**
 
 Give a second fresh agent the exact Task 1 Step 3 request and the same explicit skill path.
 
-Expected: the LTM 1400 price is POA rather than zero/cheapest; both URLs and missing fields are visible; no definite availability claim.
+Expected: frozen rubric B passes: POA remains unknown, €650,000 remains known, no definitive price ordering is asserted between them, both canonical URLs are present, and no definite availability claim is made. Hours, kilometers and location do not need to be surfaced.
 
 - [ ] **Step 3: Run the fallback scenario with the new skill**
 
-Give a third fresh agent the exact Task 1 Step 4 request and the same explicit skill path.
+Supply the new skill text to a third fresh agent in its initial context, then give it the exact Task 1 Step 4 request. After receiving that context, the evaluator must not browse, call tools or use any source beyond the captured payload.
 
-Expected: the agent uses the public read-only REST fallback, returns both current records and URLs, and does not invent authentication or a write action.
+Expected: frozen rubric C passes: the answer uses only the captured REST payload, compares both records, includes both canonical URLs, and adds no unsupported facts, noncanonical sources, authenticated/private/write route or unconditional recommendation.
 
 - [ ] **Step 4: Apply the REFACTOR gate**
 
