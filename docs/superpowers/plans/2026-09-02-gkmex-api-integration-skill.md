@@ -236,3 +236,14 @@ The two old pins must remain exact. Keep the guide below500 words; do not pad fo
 ## Self-review
 
 The plan matches the approved design: one guide, real decision-changing error rules, no runtime changes, real example execution plus independent behavioral tests, exact preservation of two older skills and staged source/discovery/site/measurement gates. No future source SHA is fabricated. Node test controls only HTTP while exercising existing SDK and actual fenced code. BaselineB is the observed defect; A/C are regression controls rather than claimed failures.
+
+## Implementation and behavioral evidence
+
+- Implementation `08f8bac`, test-only fixture correction `684fac4425c5a43398be863deb59f4504ca6cda2`. Four implementation paths only. Fixture correction restores the plan's explicit HTTP response wrappers and no-match `total: 0`; no SDK or skill changes.
+- Observed RED: four root-contract failures and three missing-skill example failures. Controller independently reran GREEN: root12/12, fenced example3/3, Python SDK35/35, Node SDK130/130. Both skill validators pass.
+- Canonical skill: 3093 bytes, 436 words, SHA-256 `8e84cbc0ca0f3a3f770cda43b2bcdd2709394e1567f0f6b70db31f26c6e1d450`; both earlier skill pins unchanged.
+- Fresh offline GREEN A returns published records, sends resume offset only on the first page, and sends the unchanged cursor thereafter. It preserves type/limit and propagates malformed/failure states. Baseline A already passed; this is a regression control.
+- Fresh offline GREEN B returns explicit `state: error` for SDK failures and `state: empty` only for empty successful data. It preserves `price_eur: None`, separates `grid_price: 0`, and exposes `price_is_poa`. Its explanation: "Keep `0` only as a UI placeholder. A missing price remains `None` (POA); failures return an explicit error state, not 'no matches.'" This corrects the observed baseline behavior that hid503 as empty and stored the unknown price as0.
+- Fresh offline GREEN C chooses Python3.9-compatible standard-library REST, truthful User-Agent, finite15-second timeout, no retry and no credentials. Errors exit nonzero; output is explicitly a first-page sample. Baseline C already met core requirements. All GREEN outputs were inspected, not represented as live execution.
+- Controller additionally executed the actual fenced JavaScript against live inventory: all16 mobile URLs equal a separate REST read; returned-ID detail lookup passed. No guessed ID or write request.
+- Site pre-release read-only baseline saved at `/tmp/gkmex-api-skill-live.7MIiUp/`: six documents, both current skills, index/catalog, OpenAPI, MCP manifest and English HTML match reviewed comparison release. Inventory29, tools3, resources2. No Ora measurement sent.
