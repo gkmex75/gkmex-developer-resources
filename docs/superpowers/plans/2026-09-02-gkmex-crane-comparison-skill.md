@@ -147,6 +147,7 @@ Add these methods to `AgentPluginContractTests` before the existing README test:
             "public, zero-auth and read-only",
             "Do not invent IDs or treat stale examples as current inventory.",
             "select the requested IDs locally in caller order",
+            "Build a compact comparison table.",
             "Include the returned official `url` for every crane.",
             "Mark other absent values as unknown.",
             "recommend conditionally using only those priorities",
@@ -232,7 +233,7 @@ If MCP is unavailable, use an available official Gkmex SDK or CLI, or REST: `GET
 
 ## Compare published facts
 
-Include the returned official `url` for every crane. Add only published fields relevant to the request: brand/model, year, crane type, capacity, `price_eur`, hours, kilometers and location.
+Build a compact comparison table. Include the returned official `url` for every crane. Add only published fields relevant to the request: brand/model, year, crane type, capacity, `price_eur`, hours, kilometers and location.
 
 `price_eur: null` means `POA`, never zero or the cheapest option. Mark other absent values as unknown. Do not infer missing specifications or silently convert units.
 
