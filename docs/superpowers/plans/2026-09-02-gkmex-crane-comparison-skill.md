@@ -363,9 +363,12 @@ expected = sorted([
     "skills/gkmex-crane-comparison/SKILL.md",
     "tests/test_agent_plugin.py",
 ])
-actual = sorted(
+actual = sorted(set(
     subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
-)
+    + subprocess.check_output(
+        ["git", "ls-files", "--others", "--exclude-standard"], text=True
+    ).splitlines()
+))
 assert actual == expected, (actual, expected)
 print("comparison skill scope: pass")
 PY
