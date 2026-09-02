@@ -141,27 +141,32 @@ Add these methods to `AgentPluginContractTests` before the existing README test:
         for required in (
             "two to five unique public IDs",
             "`list_cranes`",
-            "`compare_cranes`",
             "`get_crane`",
+            "`GET https://gkmex.com/api/v1/cranes`",
             "`GET https://gkmex.com/api/v1/cranes/{id}`",
             "public, zero-auth and read-only",
             "Do not invent IDs or treat stale examples as current inventory.",
+            "select the requested IDs locally in caller order",
+            "Include the returned official `url` for every crane.",
             "Mark other absent values as unknown.",
             "recommend conditionally using only those priorities",
             "Explain ties",
             "do not name a winner",
-            "official public listing URL",
             "`price_eur: null` means `POA`",
             "final availability",
         ):
             self.assertIn(required, skill, required)
+        self.assertNotIn("`compare" + "_cranes`", skill)
         self.assertEqual(
             re.findall(
                 r"`(GET|POST|PUT|PATCH|DELETE) (https?://[^`]+)`",
                 skill,
                 flags=re.I,
             ),
-            [("GET", "https://gkmex.com/api/v1/cranes/{id}")],
+            [
+                ("GET", "https://gkmex.com/api/v1/cranes"),
+                ("GET", "https://gkmex.com/api/v1/cranes/{id}"),
+            ],
         )
 
     def test_readme_lists_both_portable_skills_in_discovery_sections(self):
@@ -221,13 +226,13 @@ Compare only current Gkmex listings and keep published facts separate from comme
 
 ## Retrieve the shortlist
 
-Work with two to five unique public IDs. If the user has not supplied IDs, use `list_cranes` to form a relevant shortlist. Prefer the MCP `compare_cranes` tool for the final set and use `get_crane` when one listing needs its full published record.
+Work with two to five unique public IDs. If the user has not supplied IDs, use `list_cranes` to form a relevant shortlist. For MCP, call `list_cranes` to retrieve the current inventory, select the requested IDs locally in caller order, and use `get_crane` when one listing needs its full published record.
 
-If MCP is unavailable, fetch each listing from `GET https://gkmex.com/api/v1/cranes/{id}` or use an available official Gkmex SDK or CLI. The interfaces are public, zero-auth and read-only. Do not invent IDs or treat stale examples as current inventory.
+If MCP is unavailable, use an available official Gkmex SDK or CLI, or REST: `GET https://gkmex.com/api/v1/cranes` to form a shortlist and `GET https://gkmex.com/api/v1/cranes/{id}` for one listing. These interfaces are public, zero-auth and read-only. Do not invent IDs or treat stale examples as current inventory.
 
 ## Compare published facts
 
-Build a compact table from the fields relevant to the request: brand/model, year, crane type, capacity, `price_eur`, hours, kilometers, location and official public listing URL.
+Include the returned official `url` for every crane. Add only published fields relevant to the request: brand/model, year, crane type, capacity, `price_eur`, hours, kilometers and location.
 
 `price_eur: null` means `POA`, never zero or the cheapest option. Mark other absent values as unknown. Do not infer missing specifications or silently convert units.
 

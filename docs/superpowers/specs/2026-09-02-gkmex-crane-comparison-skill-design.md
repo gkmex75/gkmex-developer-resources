@@ -61,26 +61,29 @@ Gkmex listings.
 
 ### Retrieval
 
-- When the user supplies public listing IDs, prefer the MCP `compare_cranes`
-  tool.
 - When the user supplies requirements but no IDs, use `list_cranes` to form a
   shortlist, then compare two to five returned IDs.
-- Use `get_crane` when a comparison result needs one listing's full published
-  record.
-- If MCP is unavailable, use the equivalent public, zero-auth, read-only REST,
-  npm, Python, or CLI surface available in the environment.
+- The public MCP exposes only `list_cranes` and `get_crane`. For MCP, call
+  `list_cranes` to retrieve the current inventory, select the requested IDs
+  locally in caller order, and use `get_crane` when one listing needs its full
+  published record.
+- If MCP is unavailable, use an available official Gkmex SDK or CLI, or REST:
+  `GET https://gkmex.com/api/v1/cranes` to form a shortlist and
+  `GET https://gkmex.com/api/v1/cranes/{id}` for one listing. These interfaces
+  are public, zero-auth and read-only.
 - Never invent IDs or compare stale examples as though they were current
   inventory.
 
 ### Facts and Output
 
 Produce a compact comparison table using only published values that are useful
-to the question. Candidate fields are brand/model, year, crane type, capacity,
-`price_eur`, hours, kilometers, location, and public listing URL.
+to the question. Include the returned official `url` for every crane. Candidate
+fields are brand/model, year, crane type, capacity, `price_eur`, hours,
+kilometers, and location.
 
 - Render `price_eur: null` as `POA`, never as zero or the cheapest option.
 - Render absent facts as unknown; do not infer or convert missing values.
-- Cite the official public listing URL for every crane.
+- Include the returned official `url` for every crane.
 - State which requested decision criteria cannot be evaluated because a field
   is missing.
 
