@@ -110,9 +110,9 @@ COMPARISON_DESCRIPTION = (
 )
 ```
 
-- [ ] **Step 2: Add the failing portable-skill contract test**
+- [ ] **Step 2: Add the failing portable-skill contract tests**
 
-Add this method to `AgentPluginContractTests` before the README test:
+Add these methods to `AgentPluginContractTests` before the existing README test:
 
 ```python
     def test_crane_comparison_skill_is_portable_and_discoverable(self):
@@ -135,29 +135,46 @@ Add this method to `AgentPluginContractTests` before the README test:
                 + r"\n---\n\n# Gkmex crane comparison\n"
             ),
         )
+
+    def test_crane_comparison_skill_defines_read_only_contract(self):
+        skill = COMPARISON_SKILL.read_text(encoding="utf-8")
         for required in (
             "two to five unique public IDs",
+            "`list_cranes`",
             "`compare_cranes`",
+            "`get_crane`",
             "`GET https://gkmex.com/api/v1/cranes/{id}`",
-            "`price_eur: null` means `POA`",
+            "public, zero-auth and read-only",
+            "Do not invent IDs or treat stale examples as current inventory.",
+            "Mark other absent values as unknown.",
+            "recommend conditionally using only those priorities",
+            "Explain ties",
             "do not name a winner",
             "official public listing URL",
+            "`price_eur: null` means `POA`",
             "final availability",
         ):
             self.assertIn(required, skill, required)
-        self.assertNotRegex(
-            skill,
-            re.compile(
-                r"\b(?:POST|PUT|PATCH|DELETE|api[_ -]?key|authorization|"
-                r"oauth|token|secret|password)\b",
-                re.I,
-            ),
-        )
-        readme = README.read_text(encoding="utf-8")
         self.assertEqual(
-            readme.count("skills/gkmex-crane-comparison/SKILL.md"),
-            2,
+            re.findall(
+                r"`(GET|POST|PUT|PATCH|DELETE) (https?://[^`]+)`",
+                skill,
+                flags=re.I,
+            ),
+            [("GET", "https://gkmex.com/api/v1/cranes/{id}")],
         )
+
+    def test_readme_lists_both_portable_skills_in_discovery_sections(self):
+        readme = README.read_text(encoding="utf-8")
+        portable_section = readme.split(
+            "## Portable Agent Plugin", 1
+        )[1].split("\n## ", 1)[0]
+        integration_section = readme.split(
+            "## Agent integration files", 1
+        )[1].split("\n## ", 1)[0]
+        comparison_path = "skills/gkmex-crane-comparison/SKILL.md"
+        self.assertEqual(portable_section.count(comparison_path), 1)
+        self.assertEqual(integration_section.count(comparison_path), 1)
 ```
 
 - [ ] **Step 3: Extend the existing README contract expectation**
@@ -243,11 +260,20 @@ In the `Agent integration files` list, immediately after the inventory skill lin
 
 Do not edit `plugin.json`, `mcp.json`, `.codex-plugin/plugin.json`, `.mcp.json`, package code, or the existing inventory skill.
 
-- [ ] **Step 3: Run the focused static test and prove GREEN**
+- [ ] **Step 3: Run the comparison static tests and prove GREEN**
 
 Run the same focused unittest command from Task 2 Step 4.
 
 Expected: one test passes.
+
+Then run all three comparison contract tests through the full module:
+
+```bash
+env PYTHONPYCACHEPREFIX=/tmp/gkmex-comparison-green-pyc \
+  python3 -m unittest tests.test_agent_plugin -v
+```
+
+Expected: all comparison contract tests pass together with the existing module tests.
 
 - [ ] **Step 4: Validate the Agent Skills format with two independent validators**
 
@@ -370,7 +396,7 @@ uvx --from \
 git diff --check
 ```
 
-Expected: root Python 9/9, Python SDK 35/35, Node 130/130, both validators pass, and `git diff --check` is empty.
+Expected: root Python 11/11, Python SDK 35/35, Node 130/130, both validators pass, and `git diff --check` is empty.
 
 - [ ] **Step 3: Review the implementation diff**
 
@@ -431,7 +457,7 @@ gh pr create \
   --base main \
   --head feat/gkmex-crane-comparison-skill \
   --title "Publish Gkmex crane comparison skill" \
-  --body $'## Summary\n- add a second portable Gkmex Agent Skill for grounded two-to-five crane comparisons\n- preserve the existing inventory skill and plugin/MCP contracts\n- add behavioral RED/GREEN evidence, format validation, and repository contract coverage\n\n## Test plan\n- [x] root Python 9/9\n- [x] Python SDK 35/35\n- [x] Node 130/130\n- [x] quick_validate and pinned skills-ref\n- [x] three behavioral GREEN scenarios'
+  --body $'## Summary\n- add a second portable Gkmex Agent Skill for grounded two-to-five crane comparisons\n- preserve the existing inventory skill and plugin/MCP contracts\n- add behavioral RED/GREEN evidence, format validation, and repository contract coverage\n\n## Test plan\n- [x] root Python 11/11\n- [x] Python SDK 35/35\n- [x] Node 130/130\n- [x] quick_validate and pinned skills-ref\n- [x] three behavioral GREEN scenarios'
 ```
 
 Expected: GitHub returns one PR URL.
