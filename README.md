@@ -31,6 +31,7 @@ This repository root conforms to Agent Plugins 1.0.0 and packages the existing p
 
 - `plugin.json` — portable plugin identity and metadata
 - `skills/gkmex-inventory/SKILL.md` — inventory search and inspection skill
+- `skills/gkmex-crane-comparison/SKILL.md` — shortlist comparison skill
 - `mcp.json` — portable Streamable HTTP configuration for `https://gkmex.com/mcp`
 
 The `.codex-plugin/plugin.json` and `.mcp.json` files remain available for Codex-compatible clients; they do not replace the portable root files.
@@ -44,6 +45,7 @@ This repository includes `.mcp.json` for clients that accept a remote Streamable
 - `plugin.json` — portable Agent Plugins 1.0.0 manifest
 - `mcp.json` — portable Streamable HTTP MCP configuration
 - `skills/gkmex-inventory/SKILL.md` — portable inventory skill
+- `skills/gkmex-crane-comparison/SKILL.md` — portable comparison skill
 - `.claude/CLAUDE.md` — Claude integration guidance
 - `.cursor/rules/gkmex.mdc` — Cursor rule
 - `.windsurf/rules/gkmex.md` — Windsurf rule
