@@ -12,16 +12,23 @@ SKILL = ROOT / "skills" / "gkmex-inventory" / "SKILL.md"
 COMPARISON_SKILL = (
     ROOT / "skills" / "gkmex-crane-comparison" / "SKILL.md"
 )
+API_SKILL = ROOT / "skills" / "gkmex-api-integration" / "SKILL.md"
 COMPARISON_DESCRIPTION = (
     "Use when comparing two to five currently published Gkmex cranes, "
     "evaluating a shortlist against user-supplied priorities, or deciding "
     "which listing facts need commercial confirmation."
+)
+API_DESCRIPTION = (
+    "Use when building or troubleshooting an application that consumes Gkmex's "
+    "public crane inventory through REST, the official JavaScript SDK, or the "
+    "Python SDK."
 )
 README = ROOT / "README.md"
 
 CODEX_PLUGIN_SHA256 = "9a925b9c22b5786e5077adb5f0de4751d054ee87e5685abb1d7ff1e2da71e104"
 CODEX_MCP_SHA256 = "52ae85607a63fda2a58416e246277a4b7258dc4f0dd61ee6badff6ac86aa4e89"
 SKILL_SHA256 = "a299d9a47f9bb2bd29352f626e8d9a98db39ccaf1f1885c372666ec93e6192d2"
+COMPARISON_SHA256 = "8ca224019c41b17ffcbc083eab9caf8562681ac2b60016327771b1c5169b9870"
 
 
 class AgentPluginContractTests(unittest.TestCase):
@@ -98,7 +105,7 @@ class AgentPluginContractTests(unittest.TestCase):
                 path.parent.name
                 for path in (ROOT / "skills").glob("*/SKILL.md")
             ),
-            ["gkmex-crane-comparison", "gkmex-inventory"],
+            ["gkmex-api-integration", "gkmex-crane-comparison", "gkmex-inventory"],
         )
         self.assertTrue(COMPARISON_SKILL.is_file(), COMPARISON_SKILL)
         skill = COMPARISON_SKILL.read_text(encoding="utf-8")
@@ -111,6 +118,26 @@ class AgentPluginContractTests(unittest.TestCase):
                 + re.escape(COMPARISON_DESCRIPTION)
                 + r"\n---\n\n# Gkmex crane comparison\n"
             ),
+        )
+
+    def test_api_integration_skill_is_portable_and_discoverable(self):
+        self.assertTrue(API_SKILL.is_file(), API_SKILL)
+        skill = API_SKILL.read_text(encoding="utf-8")
+        self.assertTrue(
+            skill.startswith(
+                "---\n"
+                "name: gkmex-api-integration\n"
+                "description: "
+                + API_DESCRIPTION
+                + "\n---\n\n# Gkmex API integration\n"
+            )
+        )
+        self.assertEqual(
+            hashlib.sha256(SKILL.read_bytes()).hexdigest(), SKILL_SHA256
+        )
+        self.assertEqual(
+            hashlib.sha256(COMPARISON_SKILL.read_bytes()).hexdigest(),
+            COMPARISON_SHA256,
         )
 
     def test_crane_comparison_skill_defines_read_only_contract(self):
@@ -156,8 +183,11 @@ class AgentPluginContractTests(unittest.TestCase):
             "## Agent integration files", 1
         )[1].split("\n## ", 1)[0]
         comparison_path = "skills/gkmex-crane-comparison/SKILL.md"
+        api_path = "skills/gkmex-api-integration/SKILL.md"
         self.assertEqual(portable_section.count(comparison_path), 1)
         self.assertEqual(integration_section.count(comparison_path), 1)
+        self.assertEqual(portable_section.count(api_path), 1)
+        self.assertEqual(integration_section.count(api_path), 1)
 
     def test_readme_distinguishes_portable_and_codex_entry_points(self):
         readme = README.read_text(encoding="utf-8")
@@ -168,6 +198,7 @@ This repository root conforms to Agent Plugins 1.0.0 and packages the existing p
 - `plugin.json` — portable plugin identity and metadata
 - `skills/gkmex-inventory/SKILL.md` — inventory search and inspection skill
 - `skills/gkmex-crane-comparison/SKILL.md` — shortlist comparison skill
+- `skills/gkmex-api-integration/SKILL.md` — API and SDK integration skill
 - `mcp.json` — portable Streamable HTTP configuration for `https://gkmex.com/mcp`
 
 The `.codex-plugin/plugin.json` and `.mcp.json` files remain available for Codex-compatible clients; they do not replace the portable root files.
