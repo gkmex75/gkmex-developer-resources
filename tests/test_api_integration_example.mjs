@@ -33,8 +33,7 @@ async function runExample(responses) {
           const position = requests.length;
           requests.push({ url: new URL(url), init });
           assert.ok(position < responses.length, "unexpected additional request");
-          const response = responses[position];
-          const { status = 200, body = response } = response;
+          const { status = 200, body } = responses[position];
           return new Response(JSON.stringify(body), {
             status,
             headers: { "content-type": "application/json" },
@@ -71,8 +70,8 @@ function page(data, next_cursor, offset = 0) {
 
 test("example follows opaque cursors with stable filters and no offset", async () => {
   const { requests, lines } = await runExample([
-    page([crane("a"), crane("b")], "opaque token+/="),
-    page([crane("c")], null, 2),
+    { body: page([crane("a"), crane("b")], "opaque token+/=") },
+    { body: page([crane("c")], null, 2) },
   ]);
 
   assert.deepEqual(lines, [
@@ -94,7 +93,9 @@ test("example follows opaque cursors with stable filters and no offset", async (
 });
 
 test("example accepts empty200 without inventing records", async () => {
-  const { requests, lines } = await runExample([page([], null)]);
+  const { requests, lines } = await runExample([
+    { body: { ...page([], null), total: 0 } },
+  ]);
   assert.equal(requests.length, 1);
   assert.deepEqual(lines, []);
 });
