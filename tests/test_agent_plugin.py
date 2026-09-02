@@ -9,6 +9,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugin.json"
 MCP = ROOT / "mcp.json"
 SKILL = ROOT / "skills" / "gkmex-inventory" / "SKILL.md"
+COMPARISON_SKILL = (
+    ROOT / "skills" / "gkmex-crane-comparison" / "SKILL.md"
+)
+COMPARISON_DESCRIPTION = (
+    "Use when comparing two to five currently published Gkmex cranes, "
+    "evaluating a shortlist against user-supplied priorities, or deciding "
+    "which listing facts need commercial confirmation."
+)
 README = ROOT / "README.md"
 
 CODEX_PLUGIN_SHA256 = "9a925b9c22b5786e5077adb5f0de4751d054ee87e5685abb1d7ff1e2da71e104"
@@ -84,6 +92,73 @@ class AgentPluginContractTests(unittest.TestCase):
             {"type": "http", "url": "https://gkmex.com/mcp"},
         )
 
+    def test_crane_comparison_skill_is_portable_and_discoverable(self):
+        self.assertEqual(
+            sorted(
+                path.parent.name
+                for path in (ROOT / "skills").glob("*/SKILL.md")
+            ),
+            ["gkmex-crane-comparison", "gkmex-inventory"],
+        )
+        self.assertTrue(COMPARISON_SKILL.is_file(), COMPARISON_SKILL)
+        skill = COMPARISON_SKILL.read_text(encoding="utf-8")
+        self.assertRegex(
+            skill,
+            re.compile(
+                r"\A---\n"
+                r"name: gkmex-crane-comparison\n"
+                r"description: "
+                + re.escape(COMPARISON_DESCRIPTION)
+                + r"\n---\n\n# Gkmex crane comparison\n"
+            ),
+        )
+
+    def test_crane_comparison_skill_defines_read_only_contract(self):
+        skill = COMPARISON_SKILL.read_text(encoding="utf-8")
+        for required in (
+            "two to five unique public IDs",
+            "`list_cranes`",
+            "`get_crane`",
+            "`GET https://gkmex.com/api/v1/cranes`",
+            "`GET https://gkmex.com/api/v1/cranes/{id}`",
+            "public, zero-auth and read-only",
+            "Do not invent IDs or treat stale examples as current inventory.",
+            "select the requested IDs locally in caller order",
+            "Build a compact comparison table.",
+            "Include the returned official `url` for every crane.",
+            "Mark other absent values as unknown.",
+            "recommend conditionally using only those priorities",
+            "Explain ties",
+            "do not name a winner",
+            "`price_eur: null` means `POA`",
+            "final availability",
+        ):
+            self.assertIn(required, skill, required)
+        self.assertNotIn("`compare_cranes`", skill)
+        self.assertEqual(
+            re.findall(
+                r"`(GET|POST|PUT|PATCH|DELETE) (https?://[^`]+)`",
+                skill,
+                flags=re.I,
+            ),
+            [
+                ("GET", "https://gkmex.com/api/v1/cranes"),
+                ("GET", "https://gkmex.com/api/v1/cranes/{id}"),
+            ],
+        )
+
+    def test_readme_lists_both_portable_skills_in_discovery_sections(self):
+        readme = README.read_text(encoding="utf-8")
+        portable_section = readme.split(
+            "## Portable Agent Plugin", 1
+        )[1].split("\n## ", 1)[0]
+        integration_section = readme.split(
+            "## Agent integration files", 1
+        )[1].split("\n## ", 1)[0]
+        comparison_path = "skills/gkmex-crane-comparison/SKILL.md"
+        self.assertEqual(portable_section.count(comparison_path), 1)
+        self.assertEqual(integration_section.count(comparison_path), 1)
+
     def test_readme_distinguishes_portable_and_codex_entry_points(self):
         readme = README.read_text(encoding="utf-8")
         portable_block = """## Portable Agent Plugin
@@ -92,6 +167,7 @@ This repository root conforms to Agent Plugins 1.0.0 and packages the existing p
 
 - `plugin.json` — portable plugin identity and metadata
 - `skills/gkmex-inventory/SKILL.md` — inventory search and inspection skill
+- `skills/gkmex-crane-comparison/SKILL.md` — shortlist comparison skill
 - `mcp.json` — portable Streamable HTTP configuration for `https://gkmex.com/mcp`
 
 The `.codex-plugin/plugin.json` and `.mcp.json` files remain available for Codex-compatible clients; they do not replace the portable root files.
